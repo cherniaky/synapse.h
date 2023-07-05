@@ -33,9 +33,11 @@ void mat_dot(Mat dist, Mat a, Mat b);
 void mat_sum(Mat dist, Mat a);
 void mat_sig(Mat m);
 void mat_print(Mat m, const char *name);
-#define MAT_PRINT(m) mat_print(m, #m)
 void mat_rand(Mat m, float low, float high);
+Mat mat_row(Mat m, size_t row);
+void mat_copy(Mat dist, Mat src);
 void mat_fill(Mat m, float x);
+#define MAT_PRINT(m) mat_print(m, #m)
 
 #endif // SYNAPSE_H_
 
@@ -136,6 +138,29 @@ void mat_rand(Mat m, float low, float high)
         for (size_t j = 0; j < m.cols; j++)
         {
             MAT_AT(m, i, j) = rand_float() * (high - low) + low;
+        }
+    }
+}
+
+Mat mat_row(Mat m, size_t row)
+{
+    return (Mat){
+        .es = &MAT_AT(m, row, 0),
+        .rows = 1,
+        .cols = m.cols,
+    };
+}
+
+void mat_copy(Mat dist, Mat src)
+{
+    S_ASSERT(dist.rows == src.rows);
+    S_ASSERT(dist.cols == src.cols);
+
+    for (size_t i = 0; i < dist.rows; i++)
+    {
+        for (size_t j = 0; j < dist.cols; j++)
+        {
+            MAT_AT(dist, i, j) = MAT_AT(src, i, j);
         }
     }
 }
