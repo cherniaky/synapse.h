@@ -24,13 +24,22 @@ typedef struct
 
 #define MAT_AT(m, i, j) (m).es[(i) * (m).cols + (j)]
 
+float rand_float(void);
+
 Mat mat_alloc(size_t rows, size_t cols);
 void mat_dot(Mat dist, Mat a, Mat b);
-void mat_sum(Mat dist, Mat a, Mat b);
-void mat_print(Mat a);
+void mat_sum(Mat dist, Mat a);
+void mat_print(Mat m);
+void mat_rand(Mat m, float low, float high);
+
 #endif // SYNAPSE_H_
 
 #ifdef SYNAPSE_IMPLEMENTATION
+
+float rand_float()
+{
+    return (float)rand() / (float)RAND_MAX;
+}
 
 Mat mat_alloc(size_t rows, size_t cols)
 {
@@ -40,7 +49,7 @@ Mat mat_alloc(size_t rows, size_t cols)
     m.es = S_CALLOC(rows * cols, sizeof(*m.es));
     S_ASSERT(m.es != NULL);
     return m;
-};
+}
 
 void mat_dot(Mat dist, Mat a, Mat b)
 {
@@ -48,11 +57,17 @@ void mat_dot(Mat dist, Mat a, Mat b)
     (void)a;
     (void)b;
 }
-void mat_sum(Mat dist, Mat a, Mat b)
+void mat_sum(Mat dist, Mat a)
 {
-    (void)dist;
-    (void)a;
-    (void)b;
+    S_ASSERT(dist.rows == a.rows);
+    S_ASSERT(dist.cols == a.cols);
+    for (size_t i = 0; i < dist.rows; i++)
+    {
+        for (size_t j = 0; j < dist.cols; j++)
+        {
+            MAT_AT(dist, i, j) += MAT_AT(a, i, j);
+        }
+    }
 }
 
 void mat_print(Mat m)
@@ -61,10 +76,21 @@ void mat_print(Mat m)
     {
         for (size_t j = 0; j < m.cols; j++)
         {
-            printf("%f", MAT_AT(m, i, j));
+            printf("%f ", MAT_AT(m, i, j));
+        }
+        printf("\n");
+    }
+}
+
+void mat_rand(Mat m, float low, float high)
+{
+    for (size_t i = 0; i < m.rows; i++)
+    {
+        for (size_t j = 0; j < m.cols; j++)
+        {
+            MAT_AT(m, i, j) = rand_float() * (high - low) + low;
         }
     }
-    printf("\n");
 }
 
 #endif // SYNAPSE_IMPLEMENTATION
