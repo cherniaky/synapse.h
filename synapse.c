@@ -163,6 +163,12 @@ int main()
 {
     srand(time(0));
 
+    size_t arch[] = {2, 2, 1};
+    NN nn = nn_alloc(arch, ARRAY_LEN(arch));
+    NN_PRINT(nn);
+
+    return 0;
+
     size_t stride = 3;
     size_t n = sizeof(td) / sizeof(td[0]) / stride;
     Mat ti = {
