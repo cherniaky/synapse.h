@@ -20,10 +20,11 @@ typedef struct
 {
     size_t rows;
     size_t cols;
+    size_t stride;
     float *es;
 } Mat;
 
-#define MAT_AT(m, i, j) (m).es[(i) * (m).cols + (j)]
+#define MAT_AT(m, i, j) (m).es[(i) * (m).stride + (j)]
 
 float rand_float(void);
 float sigmoidf(float x);
@@ -58,6 +59,7 @@ Mat mat_alloc(size_t rows, size_t cols)
     Mat m;
     m.rows = rows;
     m.cols = cols;
+    m.stride = cols;
     m.es = S_CALLOC(rows * cols, sizeof(*m.es));
     S_ASSERT(m.es != NULL);
     return m;
@@ -148,6 +150,7 @@ Mat mat_row(Mat m, size_t row)
         .es = &MAT_AT(m, row, 0),
         .rows = 1,
         .cols = m.cols,
+        .stride = m.stride,
     };
 }
 
