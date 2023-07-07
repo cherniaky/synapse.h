@@ -48,9 +48,17 @@ typedef struct
     Mat *ws, *bs, *as;
 } NN;
 
+#define NN_INPUT(nn) (nn).as[0]
+#define NN_OUTPUT(nn) (nn).as[(nn).count]
+
 NN nn_alloc(size_t *arch, size_t arch_count);
 void nn_print(NN nn, char *name);
 #define NN_PRINT(nn) nn_print((nn), #nn)
+void nn_rand(NN nn, float low, float high);
+void nn_forward(NN nn);
+float nn_cost(NN nn, Mat ti, Mat to);
+void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to);
+void nn_learn(NN nn, NN g, float rate);
 
 #endif // SYNAPSE_H_
 
@@ -224,6 +232,105 @@ void nn_print(NN nn, char *name)
     }
 
     printf("]\n");
+}
+
+void nn_rand(NN nn, float low, float high)
+{
+    for (size_t i = 0; i < nn.count; i++)
+    {
+        mat_rand(nn.ws[i], low, high);
+        mat_rand(nn.bs[i], low, high);
+    }
+}
+
+void nn_forward(NN nn)
+{
+    for (size_t i = 0; i < nn.count; i++)
+    {
+        mat_dot(nn.as[i + 1], nn.as[i], nn.ws[i]);
+        mat_sum(nn.as[i + 1], nn.bs[i]);
+        mat_sig(nn.as[i + 1]);
+    }
+}
+
+float nn_cost(NN nn, Mat ti, Mat to)
+{
+    S_ASSERT(ti.rows == to.rows);
+    S_ASSERT(to.cols == NN_OUTPUT(nn).cols);
+
+    size_t n = ti.rows;
+
+    float c = 0;
+    for (size_t i = 0; i < n; i++)
+    {
+        Mat x = mat_row(ti, i);
+        Mat y = mat_row(to, i);
+
+        mat_copy(NN_INPUT(nn), x);
+        nn_forward(nn);
+
+        size_t q = to.cols;
+        for (size_t j = 0; j < q; j++)
+        {
+            float diff = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(y, 0, j);
+            c += diff * diff;
+        }
+    }
+
+    return c / (float)n;
+}
+
+void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to)
+{
+    float saved;
+    float c = nn_cost(nn, ti, to);
+
+    for (size_t i = 0; i < nn.count; i++)
+    {
+        for (size_t j = 0; j < nn.ws[i].rows; j++)
+        {
+            for (size_t k = 0; k < nn.ws[i].cols; k++)
+            {
+                saved = MAT_AT(nn.ws[i], j, k);
+                MAT_AT(nn.ws[i], j, k) += eps;
+                MAT_AT(g.ws[i], j, k) = (nn_cost(nn, ti, to) - c) / eps;
+                MAT_AT(nn.ws[i], j, k) = saved;
+            }
+        }
+
+        for (size_t j = 0; j < nn.bs[i].rows; j++)
+        {
+            for (size_t k = 0; k < nn.bs[i].cols; k++)
+            {
+                saved = MAT_AT(nn.bs[i], j, k);
+                MAT_AT(nn.bs[i], j, k) += eps;
+                MAT_AT(g.bs[i], j, k) = (nn_cost(nn, ti, to) - c) / eps;
+                MAT_AT(nn.bs[i], j, k) = saved;
+            }
+        }
+    }
+}
+
+void nn_learn(NN nn, NN g, float rate)
+{
+    for (size_t i = 0; i < nn.count; i++)
+    {
+        for (size_t j = 0; j < nn.ws[i].rows; j++)
+        {
+            for (size_t k = 0; k < nn.ws[i].cols; k++)
+            {
+                MAT_AT(nn.ws[i], j, k) -= rate * MAT_AT(g.ws[i], j, k);
+            }
+        }
+
+        for (size_t j = 0; j < nn.bs[i].rows; j++)
+        {
+            for (size_t k = 0; k < nn.bs[i].cols; k++)
+            {
+                MAT_AT(nn.bs[i], j, k) -= rate * MAT_AT(g.bs[i], j, k);
+            }
+        }
+    }
 }
 
 #endif // SYNAPSE_IMPLEMENTATION

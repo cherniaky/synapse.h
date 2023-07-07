@@ -163,11 +163,14 @@ int main()
 {
     srand(time(0));
 
+    float eps = 1e-1;
+    float rate = 1e-1;
+
     size_t arch[] = {2, 2, 1};
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
-    NN_PRINT(nn);
+    NN g = nn_alloc(arch, ARRAY_LEN(arch));
 
-    return 0;
+    nn_rand(nn, -1, 1);
 
     size_t stride = 3;
     size_t n = sizeof(td) / sizeof(td[0]) / stride;
@@ -183,32 +186,22 @@ int main()
         .stride = stride,
         .es = td + 2};
 
-    Xor m = xor_alloc();
-    Xor g = xor_alloc();
-
-    mat_rand(m.w1, 0, 1);
-    mat_rand(m.b1, 0, 1);
-    mat_rand(m.w2, 0, 1);
-    mat_rand(m.b2, 0, 1);
-
-    float eps = 1e-1;
-    float rate = 1e-1;
-
-    for (size_t i = 0; i < 100000; i++)
+    printf("cost = %f\n", nn_cost(nn, ti, to));
+    for (size_t i = 0; i < 1000000; i++)
     {
-        finite_diff(m, g, eps, ti, to);
-        xor_learn(m, g, rate);
-        printf("cost = %f\n", cost(m, ti, to));
+        nn_finite_diff(nn, g, eps, ti, to);
+        nn_learn(nn, g, rate);
     }
-
+    printf("cost = %f\n", nn_cost(nn, ti, to));
     for (size_t i = 0; i < 2; i++)
     {
         for (size_t j = 0; j < 2; j++)
         {
-            MAT_AT(m.a0, 0, 0) = i;
-            MAT_AT(m.a0, 0, 1) = j;
-            forward_xor(m);
-            printf("%zu ^ %zu = %f\n", i, j, *m.a2.es);
+            MAT_AT(NN_INPUT(nn), 0, 0) = i;
+            MAT_AT(NN_INPUT(nn), 0, 1) = j;
+
+            nn_forward(nn);
+            printf("%zu ^ %zu = %f\n", i, j, MAT_AT(NN_OUTPUT(nn), 0, 0));
         }
     }
 
