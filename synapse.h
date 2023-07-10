@@ -41,6 +41,7 @@ Mat mat_row(Mat m, size_t row);
 void mat_copy(Mat dist, Mat src);
 void mat_fill(Mat m, float x);
 #define MAT_PRINT(m) mat_print(m, #m, 0)
+Mat mat_t(Mat old);
 
 typedef struct
 {
@@ -58,6 +59,7 @@ void nn_rand(NN nn, float low, float high);
 void nn_forward(NN nn);
 float nn_cost(NN nn, Mat ti, Mat to);
 void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to);
+void nn_backprop(NN nn, NN g, Mat ti, Mat to);
 void nn_learn(NN nn, NN g, float rate);
 
 #endif // SYNAPSE_H_
@@ -189,6 +191,18 @@ void mat_copy(Mat dist, Mat src)
         }
     }
 }
+Mat mat_t(Mat old)
+{
+    Mat mat = mat_alloc(old.cols, old.rows);
+    for (size_t i = 0; i < old.rows; i++)
+    {
+        for (size_t j = 0; j < old.cols; j++)
+        {
+            MAT_AT(mat, j, i) = MAT_AT(old, i, j);
+        }
+    }
+    return mat;
+}
 
 NN nn_alloc(size_t *arch, size_t arch_count)
 {
@@ -307,6 +321,59 @@ void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to)
                 MAT_AT(g.bs[i], j, k) = (nn_cost(nn, ti, to) - c) / eps;
                 MAT_AT(nn.bs[i], j, k) = saved;
             }
+        }
+    }
+}
+
+void nn_backprop(NN nn, NN g, Mat ti, Mat to)
+{
+    S_ASSERT(ti.rows == to.rows);
+    size_t n = ti.rows;
+    S_ASSERT(NN_OUTPUT(nn).cols == to.cols);
+
+    // i - current sample
+    // l - current layer
+    for (size_t i = 0; i < n; i++)
+    {
+        mat_copy(NN_INPUT(nn), mat_row(ti, i));
+        nn_forward(nn);
+        for (size_t j = 0; j < to.cols; j++)
+        {
+            // MAT_AT(NN_OUTPUT(g), 0, j) = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j);
+            MAT_AT(NN_OUTPUT(g), 0, j) += (1 / (float)n) * 2 * MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j);
+        }
+
+        for (int l = nn.count - 1; l >= 0; l--)
+        {
+            // for (size_t j = 0; j < nn.as[l].cols; j++)
+            // {
+            // Mat sigm_a = mat_alloc(g.as[l + 1].rows, g.as[l + 1].cols);
+            for (size_t m = 0; m <g.as[l + 1].rows; m++)
+             {
+                for (size_t b = 0; b < g.as[l + 1].cols; b++)
+                {
+                    MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
+                }
+            }
+
+            // }
+
+            mat_sum(g.bs[l], g.as[l + 1]);
+
+            Mat a_t = mat_t(nn.as[l]);
+            Mat dCdw = mat_alloc(a_t.rows, g.as[l + 1].cols);
+            mat_dot(dCdw, a_t, g.as[l + 1]);
+            mat_sum(g.ws[l], dCdw);
+
+            Mat w_t = mat_t(nn.ws[l]);
+            Mat dCda = mat_alloc(g.as[l + 1].rows, w_t.cols);
+            mat_dot(dCda, g.as[l + 1], w_t);
+            mat_sum(g.as[l], dCda);
+
+            // free(a_t);
+            // free(dCdw);
+            // free(w_t);
+            // free(dCda);
         }
     }
 }

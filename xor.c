@@ -52,10 +52,12 @@ int main()
         .stride = stride,
         .es = td + 2};
 
+    NN_PRINT(g);
     printf("cost = %f\n", nn_cost(nn, ti, to));
     for (size_t i = 0; i < 1000000; i++)
     {
-        nn_finite_diff(nn, g, eps, ti, to);
+        // nn_finite_diff(nn, g, eps, ti, to);
+        nn_backprop(nn, g, ti, to);
         nn_learn(nn, g, rate);
     }
     printf("cost = %f\n", nn_cost(nn, ti, to));
