@@ -222,7 +222,6 @@ NN nn_alloc(size_t *arch, size_t arch_count)
     nn.as[0] = mat_alloc(1, arch[0]);
     for (size_t i = 1; i < arch_count; i++)
     {
-        // maybe error?
         nn.ws[i - 1] = mat_alloc(nn.as[i - 1].cols, arch[i]);
         nn.bs[i - 1] = mat_alloc(nn.as[i - 1].rows, arch[i]);
         nn.as[i] = mat_alloc(nn.as[i - 1].rows, arch[i]);
@@ -346,14 +345,11 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
 
         for (size_t j = 0; j < to.cols; j++)
         {
-            // MAT_AT(NN_OUTPUT(g), 0, j) = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j);
             MAT_AT(NN_OUTPUT(g), 0, j) = 2 * (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j));
         }
+
         for (int l = nn.count - 1; l >= 0; l--)
         {
-            // for (size_t j = 0; j < nn.as[l].cols; j++)
-            // {
-            // Mat sigm_a = mat_alloc(g.as[l + 1].rows, g.as[l + 1].cols);
             for (size_t m = 0; m < g.as[l + 1].rows; m++)
             {
                 for (size_t b = 0; b < g.as[l + 1].cols; b++)
@@ -361,8 +357,6 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
                     MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
                 }
             }
-
-            // }
 
             mat_sum(g.bs[l], g.as[l + 1]);
 
@@ -376,20 +370,11 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
             mat_dot(dCda, g.as[l + 1], w_t);
             mat_sum(g.as[l], dCda);
 
-            // free(a_t);
-            // free(dCdw);
-            // free(w_t);
-            // free(dCda);
+            free(a_t.es);
+            free(dCdw.es);
+            free(w_t.es);
+            free(dCda.es);
         }
-
-        // for (int l = nn.count - 1; l >= 0; l--)
-        // {
-        //     // l - current layer
-        //     for (size_t j = 0; j < nn.as[l].cols; j++)
-        //     {
-        //         // j - current matrix column
-        //     }
-        // }
     }
 
     for (size_t i = 0; i < g.count; i++)
