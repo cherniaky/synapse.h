@@ -61,6 +61,7 @@ float nn_cost(NN nn, Mat ti, Mat to);
 void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to);
 void nn_backprop(NN nn, NN g, Mat ti, Mat to);
 void nn_learn(NN nn, NN g, float rate);
+void nn_zero(NN nn);
 
 #endif // SYNAPSE_H_
 
@@ -331,25 +332,30 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
     size_t n = ti.rows;
     S_ASSERT(NN_OUTPUT(nn).cols == to.cols);
 
+    nn_zero(g);
     // i - current sample
-    // l - current layer
     for (size_t i = 0; i < n; i++)
     {
         mat_copy(NN_INPUT(nn), mat_row(ti, i));
         nn_forward(nn);
+
+        for (size_t j = 0; j <= nn.count; j++)
+        {
+            mat_fill(g.as[j], 0);
+        }
+
         for (size_t j = 0; j < to.cols; j++)
         {
             // MAT_AT(NN_OUTPUT(g), 0, j) = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j);
-            MAT_AT(NN_OUTPUT(g), 0, j) += (1 / (float)n) * 2 * MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j);
+            MAT_AT(NN_OUTPUT(g), 0, j) = 2 * (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j));
         }
-
         for (int l = nn.count - 1; l >= 0; l--)
         {
             // for (size_t j = 0; j < nn.as[l].cols; j++)
             // {
             // Mat sigm_a = mat_alloc(g.as[l + 1].rows, g.as[l + 1].cols);
-            for (size_t m = 0; m <g.as[l + 1].rows; m++)
-             {
+            for (size_t m = 0; m < g.as[l + 1].rows; m++)
+            {
                 for (size_t b = 0; b < g.as[l + 1].cols; b++)
                 {
                     MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
@@ -374,6 +380,34 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
             // free(dCdw);
             // free(w_t);
             // free(dCda);
+        }
+
+        // for (int l = nn.count - 1; l >= 0; l--)
+        // {
+        //     // l - current layer
+        //     for (size_t j = 0; j < nn.as[l].cols; j++)
+        //     {
+        //         // j - current matrix column
+        //     }
+        // }
+    }
+
+    for (size_t i = 0; i < g.count; i++)
+    {
+        for (size_t j = 0; j < g.ws[i].rows; j++)
+        {
+            for (size_t k = 0; k < g.ws[i].cols; k++)
+            {
+                MAT_AT(g.ws[i], j, k) = MAT_AT(g.ws[i], j, k) / n;
+            }
+        }
+
+        for (size_t j = 0; j < g.bs[i].rows; j++)
+        {
+            for (size_t k = 0; k < g.bs[i].cols; k++)
+            {
+                MAT_AT(g.bs[i], j, k) = MAT_AT(g.bs[i], j, k) / n;
+            }
         }
     }
 }
@@ -400,4 +434,16 @@ void nn_learn(NN nn, NN g, float rate)
     }
 }
 
+void nn_zero(NN nn)
+{
+    for (size_t i = 0; i < nn.count; i++)
+    {
+        mat_fill(nn.ws[i], 0);
+        mat_fill(nn.bs[i], 0);
+    }
+    for (size_t i = 0; i < nn.count + 1; i++)
+    {
+        mat_fill(nn.as[i], 0);
+    }
+}
 #endif // SYNAPSE_IMPLEMENTATION
