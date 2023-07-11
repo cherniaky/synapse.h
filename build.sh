@@ -1,6 +1,9 @@
 #!/bin/sh
-rm synapse 
+exec=dump_nn
+# exec=xor
 
-gcc -Wall -Wextra -o xor xor.c -lm
+rm $exec 
 
-./xor
+gcc -o $exec $exec.c -lm
+
+./$exec
