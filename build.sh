@@ -1,6 +1,6 @@
 #!/bin/sh
-exec=dump_nn
-# exec=xor
+# exec=dump_nn
+exec=xor
 
 rm $exec 
 

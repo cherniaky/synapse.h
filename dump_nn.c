@@ -1,5 +1,7 @@
+#include <time.h>
+
 #define SYNAPSE_IMPLEMENTATION
-#include "synapse.h";
+#include "synapse.h"
 #define OLIVEC_IMPLEMENTATION
 #include "./dev_deps/olive.c"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -10,22 +12,14 @@
 
 uint32_t img_pixels[IMG_HEIGHT * IMG_WIDTH];
 
-int main(void)
+void nn_render(Olivec_Canvas img, NN nn, size_t *arch)
 {
-    size_t arch[] = {4, 4, 2, 1};
-    int arch_count = ARRAY_LEN(arch);
-    NN nn = nn_alloc(arch, arch_count);
-    nn_rand(nn, -1, 1);
-
-    NN_PRINT(nn);
-
     uint32_t background_color = 0xFF181818;
     uint32_t low = 0xFF0000FF;
-    uint32_t high = 255 << (8 * 2);
-    // uint32_t high = 0xFFFF0000;
-    Olivec_Canvas img = olivec_canvas(img_pixels, IMG_WIDTH, IMG_HEIGHT, IMG_WIDTH);
+    uint32_t high = 0x00FFFF00;
 
     olivec_fill(img, background_color);
+    int arch_count = nn.count + 1;
 
     for (size_t l = 0; l < arch_count; l++)
     {
@@ -74,6 +68,21 @@ int main(void)
             olivec_circle(img, cx1, cy1, neuron_radius, neuron_color);
         }
     }
+}
+
+int main(void)
+{
+    srand(time(0));
+    size_t arch[] = {4, 4, 2, 1};
+    int arch_count = ARRAY_LEN(arch);
+    NN nn = nn_alloc(arch, arch_count);
+    nn_rand(nn, -1, 1);
+
+    NN_PRINT(nn);
+
+    Olivec_Canvas img = olivec_canvas(img_pixels, IMG_WIDTH, IMG_HEIGHT, IMG_WIDTH);
+
+    nn_render(img, nn, arch);
 
     const char *img_file_path = "nn.png";
     if (!stbi_write_png(img_file_path, img.width, img.height, 4, img.pixels, img.stride * sizeof(uint32_t)))
