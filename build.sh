@@ -4,6 +4,6 @@ exec=xor
 
 rm $exec 
 
-gcc -o $exec $exec.c -lm
+gcc -o $exec $exec.c -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 ./$exec
