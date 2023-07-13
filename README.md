@@ -1,4 +1,4 @@
-# SYNAPSE.H
+# synapse.h
 Simple std-style library for training Neural Networks
 ## Installation
 Start by:
