@@ -119,8 +119,11 @@ int main()
     {
         if (i < 5000)
         {
-            nn_backprop(nn, g, ti, to);
-            nn_learn(nn, g, rate);
+            for (size_t j = 0; j < 10; j++)
+            {
+                nn_backprop(nn, g, ti, to);
+                nn_learn(nn, g, rate);
+            }
             i++;
 
             char buf[256];
