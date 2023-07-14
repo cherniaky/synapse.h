@@ -1,4 +1,8 @@
 {
     "C_Cpp.dimInactiveRegions": false,
-    "C_Cpp.errorSquiggles": "disabled"
+    "C_Cpp.errorSquiggles": "disabled",
+    "files.associations": {
+        "*.rmd": "markdown",
+        "synapse.h": "c"
+    }
 }

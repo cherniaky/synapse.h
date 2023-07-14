@@ -20,8 +20,9 @@ float td[] = {
     0,
 };
 
-#define IMG_WIDTH 800
-#define IMG_HEIGHT 600
+#define IMG_FACTOR 80
+#define IMG_WIDTH (16 * IMG_FACTOR)
+#define IMG_HEIGHT (9 * IMG_FACTOR)
 
 uint32_t img_pixels[IMG_HEIGHT * IMG_WIDTH];
 

@@ -1,6 +1,7 @@
 #!/bin/sh
 # exec=dump_nn
-exec=xor
+# exec=xor
+exec=gym
 
 rm $exec 
 

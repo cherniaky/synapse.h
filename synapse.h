@@ -32,6 +32,8 @@ typedef struct
 #define MAT_AT(m, i, j) (m).es[(i) * (m).stride + (j)]
 
 Mat mat_alloc(size_t rows, size_t cols);
+void mat_save(FILE *out, Mat m);
+void mat_load(FILE *in, Mat m);
 void mat_dot(Mat dist, Mat a, Mat b);
 void mat_sum(Mat dist, Mat a);
 void mat_sig(Mat m);
@@ -86,6 +88,15 @@ Mat mat_alloc(size_t rows, size_t cols)
     m.es = S_CALLOC(rows * cols, sizeof(*m.es));
     S_ASSERT(m.es != NULL);
     return m;
+}
+
+void mat_save(FILE *out, Mat m){
+
+}
+void mat_load(FILE *in, Mat m)
+{
+    (void)in;
+    (void)m;
 }
 
 void mat_dot(Mat dist, Mat a, Mat b)
