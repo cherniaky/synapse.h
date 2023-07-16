@@ -125,9 +125,18 @@ void nn_render_raylib(NN nn)
                     int cy2 = nn_y + (j + 1) * next_layer_vpad;
 
                     Color connection_color = low;
-                    high.a = floorf(sigmoidf(MAT_AT(nn.ws[l], i, j)) * 255.f);
+                    float w_activation = sigmoidf(MAT_AT(nn.ws[l], i, j));
+                    high.a = floorf(w_activation * 255.f);
                     connection_color = ColorAlphaBlend(low, high, WHITE);
-                    DrawLine(cx1, cy1, cx2, cy2, connection_color);
+                    Vector2 start = {
+                        .x = cx1,
+                        .y = cy1,
+                    };
+                    Vector2 end = {
+                        .x = cx2,
+                        .y = cy2,
+                    };
+                    DrawLineEx(start, end, 5.f * fabs(w_activation), connection_color);
                 }
             }
             Color neuron_color = low;
