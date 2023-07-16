@@ -2,9 +2,11 @@
 # exec=dump_nn
 # exec=xor
 exec=gym
+# exec=xor.gen
 
 rm $exec 
 
 gcc -o $exec $exec.c -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
-./$exec
+./$exec xor.arch xor.mat
+# ./$exec

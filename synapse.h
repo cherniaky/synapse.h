@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 
 #ifndef S_CALLOC
 #define S_CALLOC calloc
@@ -33,7 +34,7 @@ typedef struct
 
 Mat mat_alloc(size_t rows, size_t cols);
 void mat_save(FILE *out, Mat m);
-void mat_load(FILE *in, Mat m);
+Mat mat_load(FILE *in);
 void mat_dot(Mat dist, Mat a, Mat b);
 void mat_sum(Mat dist, Mat a);
 void mat_sig(Mat m);
@@ -90,13 +91,42 @@ Mat mat_alloc(size_t rows, size_t cols)
     return m;
 }
 
-void mat_save(FILE *out, Mat m){
-
-}
-void mat_load(FILE *in, Mat m)
+void mat_save(FILE *out, Mat m)
 {
-    (void)in;
-    (void)m;
+    const char *magic = "nn.h.mat";
+    fwrite(magic, strlen(magic), 1, out);
+
+    fwrite(&m.rows, sizeof(m.rows), 1, out);
+    fwrite(&m.cols, sizeof(m.cols), 1, out);
+    fwrite(&m.stride, sizeof(m.stride), 1, out);
+    size_t n = fwrite(m.es, sizeof(*m.es), m.rows * m.cols, out);
+    while (n < m.rows * m.cols && !ferror(out))
+    {
+        size_t j = fwrite(m.es + n, sizeof(*m.es), m.rows * m.cols - n, out);
+        n += j;
+    }
+}
+
+Mat mat_load(FILE *in)
+{
+    uint64_t magic;
+    fread(&magic, sizeof(magic), 1, in);
+    S_ASSERT(magic == 0x74616d2e682e6e6e);
+    size_t rows, cols, stride;
+    fread(&rows, sizeof(rows), 1, in);
+    fread(&cols, sizeof(cols), 1, in);
+    fread(&stride, sizeof(stride), 1, in);
+    Mat m = mat_alloc(rows, cols);
+    m.stride = stride;
+
+    size_t n = fread(m.es, sizeof(*m.es), m.rows * m.cols, in);
+    while (n < rows * cols && !ferror(in))
+    {
+        size_t k = fread(m.es + n, sizeof(*m.es), m.rows * m.cols - n, in);
+        n += k;
+    }
+
+    return m;
 }
 
 void mat_dot(Mat dist, Mat a, Mat b)

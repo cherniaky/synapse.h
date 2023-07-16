@@ -86,10 +86,100 @@ typedef struct
         (da)->items[(da)->count++] = (item);                                           \
     } while (0)
 
+void nn_render_raylib(NN nn)
+{
+    Color background_color = {0x18, 0x18, 0x18, 0xFF};
+    Color low = BLUE;
+    Color high = RED;
+
+    ClearBackground(background_color);
+
+    int arch_count = nn.count + 1;
+
+    for (size_t l = 0; l < arch_count; l++)
+    {
+        int layer_count = nn.as[l].cols;
+        float neuron_radius = 20.f;
+        int layer_border_pad = 20;
+
+        int layer_height = IMG_HEIGHT - 2 * layer_border_pad;
+        int nn_width = IMG_WIDTH - 2 * layer_border_pad;
+
+        int layer_vpad = layer_height / (layer_count + 1);
+        int nn_hpad = nn_width / (arch_count + 1);
+
+        int nn_x = IMG_WIDTH / 2 - nn_width / 2;
+        int nn_y = IMG_HEIGHT / 2 - layer_height / 2;
+
+        for (size_t i = 0; i < layer_count; i++)
+        {
+            int cx1 = nn_x + (l + 1) * nn_hpad;
+            int cy1 = nn_y + (i + 1) * layer_vpad;
+
+            if (l < arch_count - 1)
+            {
+                for (size_t j = 0; j < nn.as[l + 1].cols; j++)
+                {
+                    int cx2 = nn_x + (l + 1 + 1) * nn_hpad;
+                    int next_layer_vpad = layer_height / (nn.as[l + 1].cols + 1);
+                    int cy2 = nn_y + (j + 1) * next_layer_vpad;
+
+                    Color connection_color = low;
+                    high.a = floorf(sigmoidf(MAT_AT(nn.ws[l], i, j)) * 255.f);
+                    connection_color = ColorAlphaBlend(low, high, WHITE);
+                    DrawLine(cx1, cy1, cx2, cy2, connection_color);
+                }
+            }
+            Color neuron_color = low;
+            if (l == 0)
+            {
+                neuron_color = GRAY;
+            }
+            else
+            {
+                high.a = floorf(sigmoidf(MAT_AT(nn.bs[l - 1], 0, i)) * 255.f);
+                neuron_color = ColorAlphaBlend(low, high, WHITE);
+            }
+            DrawCircle(cx1, cy1, neuron_radius, neuron_color);
+        }
+    }
+}
+
+char *args_shift(int *argc, char ***argv)
+{
+    assert(*argc > 0);
+    char *result = **argv;
+    (*argc)--;
+    (*argv)++;
+    return result;
+}
+
 int main(int argc, char **argv)
 {
+    srand(time(0));
+
+    const char *programm = args_shift(&argc, &argv);
+    if (argc < 0)
+    {
+        fprintf(stderr, "ERROR: no arch file was provided\n");
+        return 1;
+    }
+
+    const char *arch_file_path = args_shift(&argc, &argv);
+    if (argc < 0)
+    {
+        fprintf(stderr, "ERROR: no data file was provided\n");
+        return 1;
+    }
+
+    const char *data_file_path = args_shift(&argc, &argv);
+
     unsigned int buffer_len = 0;
-    unsigned char *buffer = LoadFileData("xor.arch", &buffer_len);
+    unsigned char *buffer = LoadFileData(arch_file_path, &buffer_len);
+    if (buffer == NULL)
+    {
+        return 1;
+    }
 
     String_View content = sv_from_parts((const char *)buffer, buffer_len);
 
@@ -99,21 +189,45 @@ int main(int argc, char **argv)
     while (content.count > 0 && isdigit(content.data[0]))
     {
         int x = sv_chop_u64(&content);
-        printf("%d\n", x);
         da_append(&arch, x);
         content = sv_trim(content);
     }
 
-    srand(time(0));
+    FILE *in = fopen(data_file_path, "rb");
+    if (ferror(in))
+    {
+        fprintf(stderr, "ERROR:Could not read file %s \n", data_file_path);
+        return 1;
+    }
+
+    Mat td = mat_load(in);
+    fclose(in);
+
+    size_t output_count = arch.items[arch.count - 1];
+
+    S_ASSERT(td.cols == arch.items[0] + output_count);
+
+    size_t stride = 3;
+
+    Mat ti = {
+        .rows = td.rows,
+        .cols = arch.items[0],
+        .stride = td.stride,
+        .es = td.es};
+
+    Mat to = {
+        .rows = td.rows,
+        .cols = output_count,
+        .stride = td.stride,
+        .es = td.es + (td.cols - output_count)};
 
     float rate = 1e-1;
 
-    // size_t arch[] = {2, 4, 1};
     NN nn = nn_alloc(arch.items, arch.count);
-    NN g = nn_alloc(arch, ARRAY_LEN(arch));
+    NN g = nn_alloc(arch.items, arch.count);
 
     nn_rand(nn, -2, 2);
-    nn_print(nn, "nn");
+
     InitWindow(IMG_WIDTH, IMG_HEIGHT, "gym");
 
     SetTargetFPS(60);
@@ -130,9 +244,9 @@ int main(int argc, char **argv)
             }
             i++;
 
-            // char buf[256];
-            // snprintf(buf, sizeof(buf), "%zu: cost = %f\n", i, nn_cost(nn, ti, to));
-            // DrawText(buf, 29, 25, 20, WHITE);
+            char buf[256];
+            snprintf(buf, sizeof(buf), "%zu: cost = %f\n", i, nn_cost(nn, ti, to));
+            DrawText(buf, 29, 25, 20, WHITE);
         }
 
         BeginDrawing();
