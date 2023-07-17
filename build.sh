@@ -6,7 +6,7 @@ exec=gym
 
 rm $exec 
 
-gcc -o $exec $exec.c -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+gcc -o $exec $exec.c -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 ./$exec xor.arch xor.mat
 # ./$exec

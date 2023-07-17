@@ -16,21 +16,21 @@
 
 typedef int Errno;
 
-static Errno file_size(FILE *file, size_t *size)
-{
-    long saved = ftell(file);
-    if (saved < 0)
-        return errno;
-    if (fseek(file, 0, SEEK_END) < 0)
-        return errno;
-    long result = ftell(file);
-    if (result < 0)
-        return errno;
-    if (fseek(file, saved, SEEK_SET) < 0)
-        return errno;
-    *size = (size_t)result;
-    return 0;
-}
+// static Errno file_size(FILE *file, size_t *size)
+// {
+//     long saved = ftell(file);
+//     if (saved < 0)
+//         return errno;
+//     if (fseek(file, 0, SEEK_END) < 0)
+//         return errno;
+//     long result = ftell(file);
+//     if (result < 0)
+//         return errno;
+//     if (fseek(file, saved, SEEK_SET) < 0)
+//         return errno;
+//     *size = (size_t)result;
+//     return 0;
+// }
 
 typedef struct
 {
@@ -143,8 +143,23 @@ float cost_plot_max(Cost_Plot plot)
 
 void plot_cost(Cost_Plot cost_da, int x_offset, int y_offset, int render_w, int render_h)
 {
-    float max = cost_plot_max(cost_da) * 1.1f;
-    DrawRectangle(x_offset, y_offset, render_w, render_h, RED);
+    float max = cost_plot_max(cost_da) * 1.f;
+    size_t n = cost_da.count;
+    if (n < 100)
+        n = 100;
+    float x_padding = (float)(render_w / n);
+
+    for (size_t i = 1; i < cost_da.count; i++)
+    {
+        // float x = x_offset + ((float)render_w / cost_da.count) * i;
+        // float y = y_offset + (cost_da.items[i] / max) * render_h;
+        // DrawCircle(x, y, render_h* 0.004, WHITE);
+        float y_start = y_offset + (1 - cost_da.items[i - 1] / max) * render_h;
+        float x_start = x_offset + x_padding * (i - 1);
+        float y_end = y_offset + (1 - cost_da.items[i] / max) * render_h;
+        float x_end = x_offset + x_padding * (i);
+        DrawLine((int)x_start, (int)y_start, (int)x_end, (int)y_end, WHITE);
+    }
 }
 
 char *args_shift(int *argc, char ***argv)
@@ -160,7 +175,7 @@ int main(int argc, char **argv)
 {
     srand(time(0));
 
-    const char *programm = args_shift(&argc, &argv);
+    args_shift(&argc, &argv);
     if (argc < 0)
     {
         fprintf(stderr, "ERROR: no arch file was provided\n");
@@ -208,8 +223,6 @@ int main(int argc, char **argv)
     size_t output_count = arch.items[arch.count - 1];
 
     S_ASSERT(td.cols == arch.items[0] + output_count);
-
-    size_t stride = 3;
 
     Mat ti = {
         .rows = td.rows,
@@ -271,10 +284,13 @@ int main(int argc, char **argv)
         nn_render_raylib(nn, x_offset, y_offset, render_w, render_h);
 
         render_w = IMG_WIDTH * 0.4;
-        render_h = IMG_HEIGHT;
-        x_offset = 0;
+        render_h = IMG_HEIGHT / 2;
+        x_offset = 30;
         y_offset = (IMG_HEIGHT - render_h) / 2;
-        plot_cost(cost_da, x_offset, y_offset, render_w, render_h);
+        if (cost_da.count > 0)
+        {
+            plot_cost(cost_da, x_offset, y_offset, render_w, render_h);
+        }
         EndDrawing();
     }
     CloseWindow();
