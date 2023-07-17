@@ -17,5 +17,7 @@ gcc -o $exec $exec.c -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 ./$exec xor.arch xor.mat
 ```
 It requires arch file and file with training data.
+</br>
 As a result you will see graphical window with cost function plot and representation of neural network that updates its weights and biases on each frame.
+</br>
 ![gym example](gym.jpg)
