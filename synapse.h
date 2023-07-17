@@ -386,7 +386,7 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
 
         for (size_t j = 0; j < to.cols; j++)
         {
-            MAT_AT(NN_OUTPUT(g), 0, j) = 2 * (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j));
+            MAT_AT(NN_OUTPUT(g), 0, j) += 2 * (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j)) / n;
         }
 
         for (int l = nn.count - 1; l >= 0; l--)
@@ -395,7 +395,7 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
             {
                 for (size_t b = 0; b < g.as[l + 1].cols; b++)
                 {
-                    MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
+                    MAT_AT(g.as[l + 1], m, b) += MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
                 }
             }
 
@@ -415,25 +415,6 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
             free(dCdw.es);
             free(w_t.es);
             free(dCda.es);
-        }
-    }
-
-    for (size_t i = 0; i < g.count; i++)
-    {
-        for (size_t j = 0; j < g.ws[i].rows; j++)
-        {
-            for (size_t k = 0; k < g.ws[i].cols; k++)
-            {
-                MAT_AT(g.ws[i], j, k) = MAT_AT(g.ws[i], j, k) / n;
-            }
-        }
-
-        for (size_t j = 0; j < g.bs[i].rows; j++)
-        {
-            for (size_t k = 0; k < g.bs[i].cols; k++)
-            {
-                MAT_AT(g.bs[i], j, k) = MAT_AT(g.bs[i], j, k) / n;
-            }
         }
     }
 }
