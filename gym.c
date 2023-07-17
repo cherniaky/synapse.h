@@ -32,44 +32,19 @@ static Errno file_size(FILE *file, size_t *size)
     return 0;
 }
 
-// Errno read_entire_file(const char *file_path, String_Builder *sb)
-// {
-//     Errno result = 0;
-//     FILE *f = NULL;
-
-//     f = fopen(file_path, "r");
-//     if (f == NULL)
-//         return_defer(errno);
-
-//     size_t size;
-//     Errno err = file_size(f, &size);
-//     if (err != 0)
-//         return_defer(err);
-
-//     if (sb->capacity < size)
-//     {
-//         sb->capacity = size;
-//         sb->items = realloc(sb->items, sb->capacity * sizeof(*sb->items));
-//         assert(sb->items != NULL && "Buy more RAM lol");
-//     }
-
-//     fread(sb->items, size, 1, f);
-//     if (ferror(f))
-//         return_defer(errno);
-//     sb->count = size;
-
-// defer:
-//     if (f)
-//         fclose(f);
-//     return result;
-// }
-
 typedef struct
 {
     size_t count;
     size_t capacity;
     size_t *items;
 } Arch;
+
+typedef struct
+{
+    size_t count;
+    size_t capacity;
+    float *items;
+} Cost_Plot;
 
 #define DA_INIT_CAP 256
 
@@ -86,30 +61,27 @@ typedef struct
         (da)->items[(da)->count++] = (item);                                           \
     } while (0)
 
-void nn_render_raylib(NN nn)
+void nn_render_raylib(NN nn, int x_offset, int y_offset, int w, int h)
 {
-    Color background_color = {0x18, 0x18, 0x18, 0xFF};
     Color low = BLUE;
     Color high = RED;
-
-    ClearBackground(background_color);
 
     int arch_count = nn.count + 1;
 
     for (size_t l = 0; l < arch_count; l++)
     {
         int layer_count = nn.as[l].cols;
-        float neuron_radius = 20.f;
+        float neuron_radius = 0.04f * (float)h;
         int layer_border_pad = 20;
 
-        int layer_height = IMG_HEIGHT - 2 * layer_border_pad;
-        int nn_width = IMG_WIDTH - 2 * layer_border_pad;
+        int layer_height = h - 2 * layer_border_pad;
+        int nn_width = w - 2 * layer_border_pad;
 
         int layer_vpad = layer_height / (layer_count + 1);
         int nn_hpad = nn_width / (arch_count + 1);
 
-        int nn_x = IMG_WIDTH / 2 - nn_width / 2;
-        int nn_y = IMG_HEIGHT / 2 - layer_height / 2;
+        int nn_x = w / 2 - nn_width / 2 + x_offset;
+        int nn_y = h / 2 - layer_height / 2 + y_offset;
 
         for (size_t i = 0; i < layer_count; i++)
         {
@@ -136,7 +108,8 @@ void nn_render_raylib(NN nn)
                         .x = cx2,
                         .y = cy2,
                     };
-                    DrawLineEx(start, end, 5.f * fabs(w_activation), connection_color);
+                    float thickness = h * 0.004f;
+                    DrawLineEx(start, end, thickness * fabs(w_activation), connection_color);
                 }
             }
             Color neuron_color = low;
@@ -152,6 +125,26 @@ void nn_render_raylib(NN nn)
             DrawCircle(cx1, cy1, neuron_radius, neuron_color);
         }
     }
+}
+
+float cost_plot_max(Cost_Plot plot)
+{
+    float max = 0;
+    for (size_t i = 0; i < plot.count; i++)
+    {
+        if (max < plot.items[i])
+        {
+            max = plot.items[i];
+        }
+    }
+
+    return max;
+}
+
+void plot_cost(Cost_Plot cost_da, int x_offset, int y_offset, int render_w, int render_h)
+{
+    float max = cost_plot_max(cost_da) * 1.1f;
+    DrawRectangle(x_offset, y_offset, render_w, render_h, RED);
 }
 
 char *args_shift(int *argc, char ***argv)
@@ -242,6 +235,8 @@ int main(int argc, char **argv)
     SetTargetFPS(60);
 
     size_t i = 0;
+    Cost_Plot cost_da = {0};
+
     while (!WindowShouldClose())
     {
         if (i < 5000)
@@ -254,12 +249,32 @@ int main(int argc, char **argv)
             i++;
 
             char buf[256];
-            snprintf(buf, sizeof(buf), "%zu: cost = %f\n", i, nn_cost(nn, ti, to));
+            float i_cost = nn_cost(nn, ti, to);
+            snprintf(buf, sizeof(buf), "%zu: cost = %f\n", i, i_cost);
+            if (i % 10 == 0)
+            {
+                da_append(&cost_da, i_cost);
+            }
+
             DrawText(buf, 29, 25, 20, WHITE);
         }
 
         BeginDrawing();
-        nn_render_raylib(nn);
+        Color background_color = {0x18, 0x18, 0x18, 0xFF};
+        ClearBackground(background_color);
+        int render_w, render_h, x_offset, y_offset;
+
+        render_w = IMG_WIDTH * 0.6;
+        render_h = IMG_HEIGHT;
+        x_offset = IMG_WIDTH - render_w;
+        y_offset = (IMG_HEIGHT - render_h) / 2;
+        nn_render_raylib(nn, x_offset, y_offset, render_w, render_h);
+
+        render_w = IMG_WIDTH * 0.4;
+        render_h = IMG_HEIGHT;
+        x_offset = 0;
+        y_offset = (IMG_HEIGHT - render_h) / 2;
+        plot_cost(cost_da, x_offset, y_offset, render_w, render_h);
         EndDrawing();
     }
     CloseWindow();
