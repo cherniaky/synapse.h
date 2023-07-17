@@ -11,8 +11,8 @@
 #define SV_IMPLEMENTATION
 #include "dev_deps/sv.h"
 
-#define IMG_WIDTH 800
-#define IMG_HEIGHT 600
+// #define IMG_WIDTH 800
+// #define IMG_HEIGHT 600
 
 typedef int Errno;
 
@@ -151,9 +151,6 @@ void plot_cost(Cost_Plot cost_da, int x_offset, int y_offset, int render_w, int 
 
     for (size_t i = 1; i < cost_da.count; i++)
     {
-        // float x = x_offset + ((float)render_w / cost_da.count) * i;
-        // float y = y_offset + (cost_da.items[i] / max) * render_h;
-        // DrawCircle(x, y, render_h* 0.004, WHITE);
         float y_start = y_offset + (1 - cost_da.items[i - 1] / max) * render_h;
         float x_start = x_offset + x_padding * (i - 1);
         float y_end = y_offset + (1 - cost_da.items[i] / max) * render_h;
@@ -242,7 +239,8 @@ int main(int argc, char **argv)
     NN g = nn_alloc(arch.items, arch.count);
 
     nn_rand(nn, -2, 2);
-
+    int IMG_HEIGHT = 600;
+    int IMG_WIDTH = 800;
     InitWindow(IMG_WIDTH, IMG_HEIGHT, "gym");
 
     SetTargetFPS(60);
@@ -252,6 +250,8 @@ int main(int argc, char **argv)
 
     while (!WindowShouldClose())
     {
+        IMG_HEIGHT = GetRenderHeight();
+        IMG_WIDTH = GetRenderWidth();
         if (i < 5000)
         {
             for (size_t j = 0; j < 10; j++)
