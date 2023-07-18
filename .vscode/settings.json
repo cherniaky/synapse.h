@@ -3,6 +3,7 @@
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
         "*.rmd": "markdown",
-        "synapse.h": "c"
+        "synapse.h": "c",
+        "stb_image.h": "c"
     }
 }

@@ -233,14 +233,14 @@ int main(int argc, char **argv)
         .stride = td.stride,
         .es = td.es + (td.cols - output_count)};
 
-    float rate = 1e-1;
+    float rate = 1e-4;
 
     NN nn = nn_alloc(arch.items, arch.count);
     NN g = nn_alloc(arch.items, arch.count);
 
     nn_rand(nn, -2, 2);
-    int IMG_HEIGHT = 600;
-    int IMG_WIDTH = 800;
+    int IMG_HEIGHT = 1000;
+    int IMG_WIDTH = 1500;
     InitWindow(IMG_WIDTH, IMG_HEIGHT, "gym");
 
     SetTargetFPS(60);

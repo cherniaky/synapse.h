@@ -1,12 +1,15 @@
 #!/bin/sh
 # exec=dump_nn
 # exec=xor
-exec=gym
+# exec=gym
 # exec=xor.gen
+exec=img2mat
 
-rm $exec 
+# rm $exec 
 
 gcc -o $exec $exec.c -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
-./$exec xor.arch xor.mat
 # ./$exec
+# ./$exec xor.arch xor.mat
+# ./$exec img.arch img.mat
+./$exec mnist/training/8/10057.png
