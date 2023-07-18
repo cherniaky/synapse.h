@@ -82,15 +82,15 @@ int main(int argc, char **argv)
         .stride = td.stride,
         .es = &MAT_AT(td, 0, 2),
     };
-    
-    size_t arch[] = {2, 28, 1};
+
+    size_t arch[] = {2, 50, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
-    nn_rand(nn, -4, 4);
-    float rate = 1.f;
+    nn_rand(nn, -1, 1);
+    float rate = 1e-0;
 
-    for (size_t epochs = 0; epochs < 10000; epochs++)
+    for (size_t epochs = 0; epochs < 100000; epochs++)
     {
         nn_backprop(nn, g, ti, to);
         nn_learn(nn, g, rate);
@@ -98,6 +98,26 @@ int main(int argc, char **argv)
         {
             printf("%zu: cost = %f\n", epochs, nn_cost(nn, ti, to));
         }
+    }
+
+    for (size_t y = 0; y < img_height; y++)
+    {
+        for (size_t x = 0; x < img_width; x++)
+        {
+            float nx = (float)x / (img_width - 1);
+            float ny = (float)y / (img_height - 1);
+
+            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
+            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+            nn_forward(nn);
+            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+
+            if (pixel)
+                printf("%3u ", pixel);
+            else
+                printf("   ");
+        }
+        printf("\n");
     }
 
     return 0;
