@@ -282,7 +282,6 @@ int main(int argc, char **argv)
         nn_render_raylib(nn, x_offset, y_offset, render_w, render_h);
 
         x_offset += render_w;
-        if (epochs % 1000 == 0)
         {
             for (size_t y = 0; y < img_height; y++)
             {
@@ -300,10 +299,9 @@ int main(int argc, char **argv)
                 }
                 UpdateTexture(preview_texture, preview_image.data);
                 DrawTextureEx(preview_texture, CLITERAL(Vector2){x_offset, y_offset}, 0.f, 5, WHITE);
-
-                EndDrawing();
             }
         }
+        EndDrawing();
     }
     CloseWindow();
 
