@@ -222,7 +222,12 @@ int main(int argc, char **argv)
 
     SetTargetFPS(60);
 
-    float rate =2;
+    img_height = 64;
+    img_width = 64;
+    Image preview_image = GenImageColor(img_width, img_height, BLACK);
+    Texture2D preview_texture = LoadTextureFromImage(preview_image);
+
+    float rate = 2;
     size_t epochs = 0;
     Cost_Plot cost_da = {0};
     size_t max_epoch = 100000;
@@ -264,43 +269,63 @@ int main(int argc, char **argv)
 
         int render_w, render_h, x_offset, y_offset;
 
-        render_w = WINDOW_WIDTH * 0.6;
-        render_h = WINDOW_HEIGHT;
-        x_offset = WINDOW_WIDTH - render_w;
-        y_offset = (WINDOW_HEIGHT - render_h) / 2;
-        nn_render_raylib(nn, x_offset, y_offset, render_w, render_h);
-
-        render_w = WINDOW_WIDTH * 0.4;
         render_h = WINDOW_HEIGHT / 2;
-        x_offset = 30;
+        render_w = WINDOW_WIDTH / 3;
         y_offset = (WINDOW_HEIGHT - render_h) / 2;
+        x_offset = 0;
         if (cost_da.count > 0)
         {
             plot_cost(cost_da, x_offset, y_offset, render_w, render_h);
         }
-        EndDrawing();
+
+        x_offset += render_w;
+        nn_render_raylib(nn, x_offset, y_offset, render_w, render_h);
+
+        x_offset += render_w;
+        if (epochs % 1000 == 0)
+        {
+            for (size_t y = 0; y < img_height; y++)
+            {
+                for (size_t x = 0; x < img_width; x++)
+                {
+                    float nx = (float)x / (img_width - 1);
+                    float ny = (float)y / (img_height - 1);
+
+                    MAT_AT(NN_INPUT(nn), 0, 0) = nx;
+                    MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+                    nn_forward(nn);
+                    uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                    ImageDrawPixel(&preview_image, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
+                    // preview_texture = LoadTextureFromImage(preview_image);
+                }
+                UpdateTexture(preview_texture, preview_image.data);
+                DrawTextureEx(preview_texture, CLITERAL(Vector2){x_offset, y_offset}, 0.f, 5, WHITE);
+
+                EndDrawing();
+            }
+        }
     }
     CloseWindow();
 
-    for (size_t y = 0; y < img_height; y++)
-    {
-        for (size_t x = 0; x < img_width; x++)
-        {
-            float nx = (float)x / (img_width - 1);
-            float ny = (float)y / (img_height - 1);
+    // for (size_t y = 0; y < img_height; y++)
+    // {
+    //     for (size_t x = 0; x < img_width; x++)
+    //     {
+    //         float nx = (float)x / (img_width - 1);
+    //         float ny = (float)y / (img_height - 1);
 
-            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
-            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
-            nn_forward(nn);
-            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+    //         MAT_AT(NN_INPUT(nn), 0, 0) = nx;
+    //         MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+    //         nn_forward(nn);
+    //         uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
 
-            if (pixel)
-                printf("%3u ", pixel);
-            else
-                printf("   ");
-        }
-        printf("\n");
-    }
+    //         if (pixel)
+    //             printf("%3u ", pixel);
+    //         else
+    //             printf("   ");
+    //     }
+    //     printf("\n");
+    // }
 
     size_t out_width = 512;
     size_t out_height = 512;
