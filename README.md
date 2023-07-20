@@ -38,4 +38,4 @@ As a result you will see graphical window with:
 2. Representation of neural network that updates its weights and biases on each frame
 3. Current ability of neural network to upscale given image (in our example we upscale 32x32 image to 64x64)
 </br>
-![gym example](img2mat.jpg)
+![img2mat example](img2mat.jpg)
