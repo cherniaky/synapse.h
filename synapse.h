@@ -373,50 +373,113 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
     S_ASSERT(NN_OUTPUT(nn).cols == to.cols);
 
     nn_zero(g);
+
     // i - current sample
-    for (size_t i = 0; i < n; i++)
+    // l - current layer
+    // j - current activation
+    // k - previous activation
+
+    for (size_t i = 0; i < n; ++i)
     {
         mat_copy(NN_INPUT(nn), mat_row(ti, i));
         nn_forward(nn);
 
-        for (size_t j = 0; j <= nn.count; j++)
+        for (size_t j = 0; j <= nn.count; ++j)
         {
             mat_fill(g.as[j], 0);
         }
 
-        for (size_t j = 0; j < to.cols; j++)
+        for (size_t j = 0; j < to.cols; ++j)
         {
-            MAT_AT(NN_OUTPUT(g), 0, j) += 2 * (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j)) / n;
+            MAT_AT(NN_OUTPUT(g), 0, j) = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j);
         }
 
-        for (int l = nn.count - 1; l >= 0; l--)
+        for (size_t l = nn.count; l > 0; --l)
         {
-            for (size_t m = 0; m < g.as[l + 1].rows; m++)
+            for (size_t j = 0; j < nn.as[l].cols; ++j)
             {
-                for (size_t b = 0; b < g.as[l + 1].cols; b++)
+                float a = MAT_AT(nn.as[l], 0, j);
+                float da = MAT_AT(g.as[l], 0, j);
+                MAT_AT(g.bs[l - 1], 0, j) += 2 * da * a * (1 - a);
+                for (size_t k = 0; k < nn.as[l - 1].cols; ++k)
                 {
-                    MAT_AT(g.as[l + 1], m, b) += MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
+                    // j - weight matrix col
+                    // k - weight matrix row
+                    float pa = MAT_AT(nn.as[l - 1], 0, k);
+                    float w = MAT_AT(nn.ws[l - 1], k, j);
+                    MAT_AT(g.ws[l - 1], k, j) += 2 * da * a * (1 - a) * pa;
+                    MAT_AT(g.as[l - 1], 0, k) += 2 * da * a * (1 - a) * w;
                 }
             }
-
-            mat_sum(g.bs[l], g.as[l + 1]);
-
-            Mat a_t = mat_t(nn.as[l]);
-            Mat dCdw = mat_alloc(a_t.rows, g.as[l + 1].cols);
-            mat_dot(dCdw, a_t, g.as[l + 1]);
-            mat_sum(g.ws[l], dCdw);
-
-            Mat w_t = mat_t(nn.ws[l]);
-            Mat dCda = mat_alloc(g.as[l + 1].rows, w_t.cols);
-            mat_dot(dCda, g.as[l + 1], w_t);
-            mat_sum(g.as[l], dCda);
-
-            free(a_t.es);
-            free(dCdw.es);
-            free(w_t.es);
-            free(dCda.es);
         }
     }
+
+    for (size_t i = 0; i < g.count; ++i)
+    {
+        for (size_t j = 0; j < g.ws[i].rows; ++j)
+        {
+            for (size_t k = 0; k < g.ws[i].cols; ++k)
+            {
+                MAT_AT(g.ws[i], j, k) /= n;
+            }
+        }
+        for (size_t j = 0; j < g.bs[i].rows; ++j)
+        {
+            for (size_t k = 0; k < g.bs[i].cols; ++k)
+            {
+                MAT_AT(g.bs[i], j, k) /= n;
+            }
+        }
+    }
+    // S_ASSERT(ti.rows == to.rows);
+    // size_t n = ti.rows;
+    // S_ASSERT(NN_OUTPUT(nn).cols == to.cols);
+
+    // nn_zero(g);
+    // // i - current sample
+    // for (size_t i = 0; i < n; i++)
+    // {
+    //     mat_copy(NN_INPUT(nn), mat_row(ti, i));
+    //     nn_forward(nn);
+
+    //     for (size_t j = 0; j <= nn.count; j++)
+    //     {
+    //         mat_fill(g.as[j], 0);
+    //     }
+
+    //     for (size_t j = 0; j < to.cols; j++)
+    //     {
+    //         MAT_AT(NN_OUTPUT(g), 0, j) += 2 * (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(to, i, j)) / n;
+    //     }
+
+    //     for (int l = nn.count - 1; l >= 0; l--)
+    //     {
+    //         for (size_t m = 0; m < g.as[l + 1].rows; m++)
+    //         {
+    //             for (size_t b = 0; b < g.as[l + 1].cols; b++)
+    //             {
+    //                 MAT_AT(g.as[l + 1], m, b) += MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
+    //             }
+    //         }
+
+    //         mat_sum(g.bs[l], g.as[l + 1]);
+
+    //         Mat a_t = mat_t(nn.as[l]);
+    //         Mat dCdw = mat_alloc(a_t.rows, g.as[l + 1].cols);
+    //         mat_dot(dCdw, a_t, g.as[l + 1]);
+    //         mat_sum(g.ws[l], dCdw);
+
+    //         Mat w_t = mat_t(nn.ws[l]);
+    //         Mat dCda = mat_alloc(g.as[l + 1].rows, w_t.cols);
+    //         mat_dot(dCda, g.as[l + 1], w_t);
+    //         mat_sum(g.as[l], dCda);
+
+    //         free(a_t.es);
+    //         free(dCdw.es);
+    //         free(w_t.es);
+    //         free(dCda.es);
+    //     }
+    // }
 }
 
 void nn_learn(NN nn, NN g, float rate)
@@ -447,10 +510,8 @@ void nn_zero(NN nn)
     {
         mat_fill(nn.ws[i], 0);
         mat_fill(nn.bs[i], 0);
-    }
-    for (size_t i = 0; i < nn.count + 1; i++)
-    {
         mat_fill(nn.as[i], 0);
     }
+    mat_fill(nn.as[nn.count], 0);
 }
 #endif // SYNAPSE_IMPLEMENTATION

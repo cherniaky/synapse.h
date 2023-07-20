@@ -2,8 +2,8 @@
 #include <assert.h>
 #include <raylib.h>
 
-// #define STB_IMAGE_IMPLEMENTATION
 #include "dev_deps/stb_image.h"
+#include "dev_deps/stb_image_write.h"
 
 #define SYNAPSE_IMPLEMENTATION
 #include "synapse.h"
@@ -126,6 +126,11 @@ void plot_cost(Cost_Plot cost_da, int x_offset, int y_offset, int render_w, int 
         float x_end = x_offset + x_padding * (i);
         DrawLine((int)x_start, (int)y_start, (int)x_end, (int)y_end, WHITE);
     }
+    float y_start = y_offset + render_h;
+    float x_start = x_offset;
+    float y_end = y_offset + render_h;
+    float x_end = x_offset + render_w;
+    DrawLine((int)x_start, (int)y_start, (int)x_end, (int)y_end, WHITE);
 }
 
 char *args_shift(int *argc, char ***argv)
@@ -204,13 +209,11 @@ int main(int argc, char **argv)
         .es = &MAT_AT(td, 0, 2),
     };
 
-    size_t arch[] = {2, 50, 50, 1};
+    size_t arch[] = {2, 7, 4, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
-    nn_rand(nn, -1, 1);
-
-    float rate = 1e-0;
+    nn_rand(nn, -2, 2);
 
     int WINDOW_FACTOR = 80;
     int WINDOW_HEIGHT = 9 * WINDOW_FACTOR;
@@ -219,36 +222,46 @@ int main(int argc, char **argv)
 
     SetTargetFPS(60);
 
-    size_t i = 0;
+    float rate = 1;
+    size_t epochs = 0;
     Cost_Plot cost_da = {0};
+    size_t max_epoch = 100000;
+    size_t epoch_per_frame = 10;
+    bool paused = false;
 
     while (!WindowShouldClose())
     {
+        if (IsKeyPressed(KEY_SPACE))
+        {
+            paused = !paused;
+        }
+
         WINDOW_HEIGHT = GetRenderHeight();
         WINDOW_WIDTH = GetRenderWidth();
-        if (i < 5000)
+        if (epochs < max_epoch)
         {
-            for (size_t j = 0; j < 10; j++)
+            for (size_t j = 0; j < epoch_per_frame && !paused; j++)
             {
                 nn_backprop(nn, g, ti, to);
                 nn_learn(nn, g, rate);
+                epochs++;
             }
-            i++;
-
-            char buf[256];
-            float i_cost = nn_cost(nn, ti, to);
-            snprintf(buf, sizeof(buf), "%zu: cost = %f\n", i, i_cost);
-            if (i % 10 == 0)
-            {
-                da_append(&cost_da, i_cost);
-            }
-
-            DrawText(buf, 29, 25, 20, WHITE);
         }
 
         BeginDrawing();
         Color background_color = {0x18, 0x18, 0x18, 0xFF};
         ClearBackground(background_color);
+
+        char buf[256];
+        float i_cost = nn_cost(nn, ti, to);
+        snprintf(buf, sizeof(buf), "%zu: cost = %f\n", epochs, i_cost);
+        if (epochs % 100 == 0)
+        {
+            da_append(&cost_da, i_cost);
+        }
+
+        DrawText(buf, 29, 25, 20, WHITE);
+
         int render_w, render_h, x_offset, y_offset;
 
         render_w = WINDOW_WIDTH * 0.6;
@@ -289,5 +302,34 @@ int main(int argc, char **argv)
         printf("\n");
     }
 
+    size_t out_width = 512;
+    size_t out_height = 512;
+    uint8_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
+    S_ASSERT(out_pixels != NULL);
+
+    for (size_t y = 0; y < out_height; y++)
+    {
+        for (size_t x = 0; x < out_width; x++)
+        {
+            float nx = (float)x / (out_width - 1);
+            float ny = (float)y / (out_height - 1);
+
+            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
+            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+            nn_forward(nn);
+            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+
+            out_pixels[y * out_width + x] = pixel;
+        }
+    }
+
+    char *out_file_path = "out.png";
+    if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
+    {
+        fprintf(stderr, "ERROR: could not save image %s \n", out_file_path);
+        return 1;
+    }
+
+    printf("Generated %s\n ", out_file_path);
     return 0;
 }
