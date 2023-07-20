@@ -18,7 +18,9 @@ gcc -o $exec $exec.c -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 ```
 It requires arch file and file with training data.
 </br>
-As a result you will see graphical window with cost function plot and representation of neural network that updates its weights and biases on each frame.
+As a result you will see graphical window with:
+1. Cost function plot
+2. Representation of neural network that updates its weights and biases on each frame
 </br>
 ![gym example](gym.jpg)
 ## img2mat.c
