@@ -209,7 +209,7 @@ int main(int argc, char **argv)
         .es = &MAT_AT(td, 0, 2),
     };
 
-    size_t arch[] = {2, 7, 4, 1};
+    size_t arch[] = {2, 7, 8, 4, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
@@ -222,7 +222,7 @@ int main(int argc, char **argv)
 
     SetTargetFPS(60);
 
-    float rate = 1;
+    float rate =2;
     size_t epochs = 0;
     Cost_Plot cost_da = {0};
     size_t max_epoch = 100000;
