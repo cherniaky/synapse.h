@@ -223,30 +223,36 @@ int main(int argc, char **argv)
         WINDOW_HEIGHT = GetRenderHeight();
         WINDOW_WIDTH = GetRenderWidth();
         float epoch_cost = 0;
+        size_t training_size = batch_size;
+        if (batch_size > td.rows)
+        {
+            training_size = td.rows;
+        }
+
         if (epochs < max_epoch)
         {
-            for (size_t j = 0; j < batch_count && !paused; j++)
+            for (size_t j = 0; j < 5 * batch_count && !paused; j++)
             {
                 mat_shuffle_rows(td);
 
-                Mat ti = {
-                    .rows = batch_size,
+                Mat batch_ti = {
+                    .rows = training_size,
                     .cols = 2,
                     .stride = td.stride,
                     .es = &MAT_AT(td, 0, 0),
                 };
 
-                Mat to = {
-                    .rows = batch_size,
+                Mat batch_to = {
+                    .rows = training_size,
                     .cols = 1,
                     .stride = td.stride,
-                    .es = &MAT_AT(td, 0, 2),
+                    .es = &MAT_AT(td, 0, batch_ti.cols),
                 };
 
-                nn_backprop(nn, g, ti, to);
+                nn_backprop(nn, g, batch_ti, batch_to);
                 nn_learn(nn, g, rate);
 
-                epoch_cost += nn_cost(nn, ti, to) / batch_count;
+                epoch_cost += nn_cost(nn, batch_ti, batch_to) / batch_count;
             }
             epochs++;
         }
