@@ -186,26 +186,6 @@ int main(int argc, char **argv)
         }
     }
 
-    mat_shuffle_rows(td);
-
-    MAT_PRINT(td);
-
-    return 0;
-
-    Mat ti = {
-        .rows = td.rows,
-        .cols = 2,
-        .stride = td.stride,
-        .es = &MAT_AT(td, 0, 0),
-    };
-
-    Mat to = {
-        .rows = td.rows,
-        .cols = 1,
-        .stride = td.stride,
-        .es = &MAT_AT(td, 0, 2),
-    };
-
     size_t arch[] = {2, 7, 8, 4, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
@@ -225,6 +205,8 @@ int main(int argc, char **argv)
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
     float rate = 2;
+    size_t batch_size = 50;
+    size_t batch_count = (td.rows + batch_size - 1) / batch_size;
     size_t epochs = 0;
     Cost_Plot cost_da = {0};
     size_t max_epoch = 100000;
@@ -240,14 +222,33 @@ int main(int argc, char **argv)
 
         WINDOW_HEIGHT = GetRenderHeight();
         WINDOW_WIDTH = GetRenderWidth();
+        float epoch_cost = 0;
         if (epochs < max_epoch)
         {
-            for (size_t j = 0; j < epoch_per_frame && !paused; j++)
+            for (size_t j = 0; j < batch_count && !paused; j++)
             {
+                mat_shuffle_rows(td);
+
+                Mat ti = {
+                    .rows = batch_size,
+                    .cols = 2,
+                    .stride = td.stride,
+                    .es = &MAT_AT(td, 0, 0),
+                };
+
+                Mat to = {
+                    .rows = batch_size,
+                    .cols = 1,
+                    .stride = td.stride,
+                    .es = &MAT_AT(td, 0, 2),
+                };
+
                 nn_backprop(nn, g, ti, to);
                 nn_learn(nn, g, rate);
-                epochs++;
+
+                epoch_cost += nn_cost(nn, ti, to) / batch_count;
             }
+            epochs++;
         }
 
         BeginDrawing();
@@ -255,11 +256,10 @@ int main(int argc, char **argv)
         ClearBackground(background_color);
 
         char buf[256];
-        float i_cost = nn_cost(nn, ti, to);
-        snprintf(buf, sizeof(buf), "%zu: cost = %f\n", epochs, i_cost);
+        snprintf(buf, sizeof(buf), "%zu: cost = %f\n", epochs, epoch_cost);
         if (epochs % 100 == 0)
         {
-            da_append(&cost_da, i_cost);
+            da_append(&cost_da, epoch_cost);
         }
 
         DrawText(buf, 29, 25, 20, WHITE);
