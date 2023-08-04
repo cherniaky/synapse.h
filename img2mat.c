@@ -144,6 +144,8 @@ char *args_shift(int *argc, char ***argv)
 
 int main(int argc, char **argv)
 {
+    srand(time(0));
+
     args_shift(&argc, &argv);
     if (argc < 0)
     {
@@ -184,17 +186,12 @@ int main(int argc, char **argv)
         }
     }
 
-    // MAT_PRINT(td);
-    // const char *out_file_path = "img.mat";
-    // FILE *out = fopen(out_file_path, "wb");
-    // if (out == NULL)
-    // {
-    //     fprintf(stderr, "Could not open file %s\n", out_file_path);
-    //     return 1;
-    // }
-    // mat_save(out, td);
+    mat_shuffle_rows(td);
 
-    // printf("Generated %s from %s\n", out_file_path, img_file_path);
+    MAT_PRINT(td);
+
+    return 0;
+
     Mat ti = {
         .rows = td.rows,
         .cols = 2,

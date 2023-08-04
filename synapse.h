@@ -45,6 +45,7 @@ void mat_copy(Mat dist, Mat src);
 void mat_fill(Mat m, float x);
 #define MAT_PRINT(m) mat_print(m, #m, 0)
 Mat mat_t(Mat old);
+void mat_shuffle_rows(Mat m);
 
 typedef struct
 {
@@ -244,6 +245,24 @@ Mat mat_t(Mat old)
         }
     }
     return mat;
+}
+
+void mat_shuffle_rows(Mat m)
+{
+    for (size_t i = 0; i < m.rows; i++)
+    {
+        size_t j = i + rand() % (m.rows - i);
+
+        if (i != j)
+        {
+            for (size_t k = 0; k < m.cols; k++)
+            {
+                float t = MAT_AT(m, j, k);
+                MAT_AT(m, j, k) = MAT_AT(m, i, k);
+                MAT_AT(m, i, k) = t;
+            }
+        }
+    }
 }
 
 NN nn_alloc(size_t *arch, size_t arch_count)
