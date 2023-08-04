@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <raylib.h>
+#include <time.h>
 
 #include "dev_deps/stb_image.h"
 #include "dev_deps/stb_image_write.h"
@@ -146,39 +147,49 @@ int main(int argc, char **argv)
 {
     srand(time(0));
 
-    args_shift(&argc, &argv);
-    if (argc < 0)
+    char *programm = args_shift(&argc, &argv);
+    if (argc <= 0)
     {
+        fprintf(stderr, "Usage: %s <img1> <img2>\n", programm);
         fprintf(stderr, "ERROR: no input file was provided\n");
         return 1;
     }
 
-    const char *img_file_path = args_shift(&argc, &argv);
+    const char *img1_file_path = args_shift(&argc, &argv);
 
-    int img_width, img_height, n;
-    uint8_t *img_pixels = (uint8_t *)stbi_load(img_file_path, &img_width, &img_height, &n, 0);
-    if (img_pixels == NULL)
+    if (argc <= 0)
     {
-        fprintf(stderr, "Could not read image %s\n", img_file_path);
+        fprintf(stderr, "Usage: %s <img1> <img2>\n", programm);
+        fprintf(stderr, "ERROR: no image2 was provided\n");
         return 1;
     }
-    if (n != 1)
+
+    const char *img2_file_path = args_shift(&argc, &argv);
+
+    int img1_width, img1_height, n1;
+    uint8_t *img1_pixels = (uint8_t *)stbi_load(img1_file_path, &img1_width, &img1_height, &n1, 0);
+    if (img1_pixels == NULL)
     {
-        fprintf(stderr, "Image %s is %d bits image. Only 8 bit grayscale images is supported\n", img_file_path, 8 * n);
+        fprintf(stderr, "Could not read image %s\n", img1_file_path);
         return 1;
     }
-    fprintf(stdout, "%s is %dx%d %d bits\n", img_file_path, img_width, img_height, n * 8);
-
-    Mat td = mat_alloc(img_width * img_height, 3);
-
-    for (size_t y = 0; y < img_height; y++)
+    if (n1 != 1)
     {
-        for (size_t x = 0; x < img_width; x++)
+        fprintf(stderr, "Image %s is %d bits image. Only 8 bit grayscale images is supported\n", img1_file_path, 8 * n1);
+        return 1;
+    }
+    fprintf(stdout, "%s is %dx%d %d bits\n", img1_file_path, img1_width, img1_height, n1 * 8);
+
+    Mat td = mat_alloc(img1_width * img1_height, 3);
+
+    for (size_t y = 0; y < img1_height; y++)
+    {
+        for (size_t x = 0; x < img1_width; x++)
         {
-            float nx = (float)x / (img_width - 1);
-            float ny = (float)y / (img_height - 1);
-            size_t i = y * img_width + x;
-            float nv = img_pixels[i] / 255.f;
+            float nx = (float)x / (img1_width - 1);
+            float ny = (float)y / (img1_height - 1);
+            size_t i = y * img1_width + x;
+            float nv = img1_pixels[i] / 255.f;
 
             MAT_AT(td, i, 0) = nx;
             MAT_AT(td, i, 1) = ny;
@@ -186,7 +197,7 @@ int main(int argc, char **argv)
         }
     }
 
-    size_t arch[] = {2, 7, 8, 4, 1};
+    size_t arch[] = {2, 7, 7, 7, 7, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
@@ -199,18 +210,18 @@ int main(int argc, char **argv)
 
     SetTargetFPS(60);
 
-    img_height = 64;
-    img_width = 64;
-    Image preview_image = GenImageColor(img_width, img_height, BLACK);
+    img1_height = 64;
+    img1_width = 64;
+    Image preview_image = GenImageColor(img1_width, img1_height, BLACK);
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
     float rate = 2;
-    size_t batch_size = 50;
+    size_t batch_size = 28;
     size_t batch_count = (td.rows + batch_size - 1) / batch_size;
+    size_t epoch_per_frame = 8;
     size_t epochs = 0;
     Cost_Plot cost_da = {0};
     size_t max_epoch = 100000;
-    size_t epoch_per_frame = 10;
     bool paused = false;
 
     while (!WindowShouldClose())
@@ -223,38 +234,43 @@ int main(int argc, char **argv)
         WINDOW_HEIGHT = GetRenderHeight();
         WINDOW_WIDTH = GetRenderWidth();
         float epoch_cost = 0;
-        size_t training_size = batch_size;
-        if (batch_size > td.rows)
-        {
-            training_size = td.rows;
-        }
 
         if (epochs < max_epoch)
         {
-            for (size_t j = 0; j < 5 * batch_count && !paused; j++)
+            for (size_t i = 0; i < epoch_per_frame && !paused; i++)
             {
                 mat_shuffle_rows(td);
+                for (size_t batch_current = 0; batch_current < batch_count; batch_current++)
+                {
+                    size_t training_size = batch_size;
+                    size_t start_row = batch_size * batch_current;
+                    if (start_row + batch_size >= td.rows)
+                    {
+                        training_size = td.rows - start_row;
+                    }
 
-                Mat batch_ti = {
-                    .rows = training_size,
-                    .cols = 2,
-                    .stride = td.stride,
-                    .es = &MAT_AT(td, 0, 0),
-                };
+                    Mat batch_ti = {
+                        .rows = training_size,
+                        .cols = 2,
+                        .stride = td.stride,
+                        .es = &MAT_AT(td, start_row, 0),
+                    };
 
-                Mat batch_to = {
-                    .rows = training_size,
-                    .cols = 1,
-                    .stride = td.stride,
-                    .es = &MAT_AT(td, 0, batch_ti.cols),
-                };
+                    Mat batch_to = {
+                        .rows = training_size,
+                        .cols = 1,
+                        .stride = td.stride,
+                        .es = &MAT_AT(td, start_row, batch_ti.cols),
+                    };
 
-                nn_backprop(nn, g, batch_ti, batch_to);
-                nn_learn(nn, g, rate);
+                    nn_backprop(nn, g, batch_ti, batch_to);
+                    nn_learn(nn, g, rate);
 
-                epoch_cost += nn_cost(nn, batch_ti, batch_to) / batch_count;
+                    epoch_cost += nn_cost(nn, batch_ti, batch_to) / batch_count;
+                }
+
+                epochs++;
             }
-            epochs++;
         }
 
         BeginDrawing();
@@ -263,7 +279,7 @@ int main(int argc, char **argv)
 
         char buf[256];
         snprintf(buf, sizeof(buf), "%zu: cost = %f\n", epochs, epoch_cost);
-        if (epochs % 100 == 0)
+        if (epochs % 10 == 0)
         {
             da_append(&cost_da, epoch_cost);
         }
@@ -286,12 +302,12 @@ int main(int argc, char **argv)
 
         x_offset += render_w;
         {
-            for (size_t y = 0; y < img_height; y++)
+            for (size_t y = 0; y < img1_height; y++)
             {
-                for (size_t x = 0; x < img_width; x++)
+                for (size_t x = 0; x < img1_width; x++)
                 {
-                    float nx = (float)x / (img_width - 1);
-                    float ny = (float)y / (img_height - 1);
+                    float nx = (float)x / (img1_width - 1);
+                    float ny = (float)y / (img1_height - 1);
 
                     MAT_AT(NN_INPUT(nn), 0, 0) = nx;
                     MAT_AT(NN_INPUT(nn), 0, 1) = ny;

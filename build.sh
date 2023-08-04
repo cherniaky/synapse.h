@@ -5,11 +5,11 @@
 # exec=xor.gen
 exec=img2mat
 
-# rm $exec 
+rm $exec 
 
-gcc -o $exec $exec.c -O3 -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+gcc -o $exec $exec.c -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 # ./$exec
 # ./$exec xor.arch xor.mat
 # ./$exec img.arch img.mat
-./$exec mnist/6.png
+./$exec mnist/6.png mnist/6.png
