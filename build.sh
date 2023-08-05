@@ -12,4 +12,4 @@ gcc -o $exec $exec.c -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 # ./$exec
 # ./$exec xor.arch xor.mat
 # ./$exec img.arch img.mat
-./$exec mnist/6.png mnist/6.png
+./$exec mnist/8.png mnist/6.png

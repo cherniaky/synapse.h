@@ -164,8 +164,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    const char *img2_file_path = args_shift(&argc, &argv);
-
     int img1_width, img1_height, n1;
     uint8_t *img1_pixels = (uint8_t *)stbi_load(img1_file_path, &img1_width, &img1_height, &n1, 0);
     if (img1_pixels == NULL)
@@ -180,7 +178,28 @@ int main(int argc, char **argv)
     }
     fprintf(stdout, "%s is %dx%d %d bits\n", img1_file_path, img1_width, img1_height, n1 * 8);
 
-    Mat td = mat_alloc(img1_width * img1_height, 3);
+    const char *img2_file_path = args_shift(&argc, &argv);
+
+    int img2_width, img2_height, n2;
+    uint8_t *img2_pixels = (uint8_t *)stbi_load(img2_file_path, &img2_width, &img2_height, &n2, 0);
+    if (img2_pixels == NULL)
+    {
+        fprintf(stderr, "Could not read image %s\n", img2_file_path);
+        return 1;
+    }
+    if (n2 != 1)
+    {
+        fprintf(stderr, "Image %s is %d bits image. Only 8 bit grayscale images is supported\n", img2_file_path, 8 * n2);
+        return 1;
+    }
+    fprintf(stdout, "%s is %dx%d %d bits\n", img2_file_path, img2_width, img2_height, n2 * 8);
+
+    size_t arch[] = {3, 7, 7, 7, 7, 6, 3, 1};
+
+    NN nn = nn_alloc(arch, ARRAY_LEN(arch));
+    NN g = nn_alloc(arch, ARRAY_LEN(arch));
+
+    Mat td = mat_alloc(img1_width * img1_height + img2_width * img2_height, NN_INPUT(nn).cols + NN_OUTPUT(nn).cols);
 
     for (size_t y = 0; y < img1_height; y++)
     {
@@ -193,14 +212,28 @@ int main(int argc, char **argv)
 
             MAT_AT(td, i, 0) = nx;
             MAT_AT(td, i, 1) = ny;
-            MAT_AT(td, i, 2) = nv;
+            MAT_AT(td, i, 2) = 0.0f;
+            MAT_AT(td, i, 3) = nv;
         }
     }
 
-    size_t arch[] = {2, 7, 7, 7, 7, 1};
+    for (size_t y = 0; y < img2_height; y++)
+    {
+        for (size_t x = 0; x < img2_width; x++)
+        {
+            float nx = (float)x / (img2_width - 1);
+            float ny = (float)y / (img2_height - 1);
+            size_t i = y * img2_width + x;
+            size_t row = i + img1_height * img1_width;
+            float nv = img2_pixels[i] / 255.f;
 
-    NN nn = nn_alloc(arch, ARRAY_LEN(arch));
-    NN g = nn_alloc(arch, ARRAY_LEN(arch));
+            MAT_AT(td, row, 0) = nx;
+            MAT_AT(td, row, 1) = ny;
+            MAT_AT(td, row, 2) = 1.0f;
+            MAT_AT(td, row, 3) = nv;
+        }
+    }
+
     nn_rand(nn, -2, 2);
 
     int WINDOW_FACTOR = 80;
@@ -251,14 +284,14 @@ int main(int argc, char **argv)
 
                     Mat batch_ti = {
                         .rows = training_size,
-                        .cols = 2,
+                        .cols = NN_INPUT(nn).cols,
                         .stride = td.stride,
                         .es = &MAT_AT(td, start_row, 0),
                     };
 
                     Mat batch_to = {
                         .rows = training_size,
-                        .cols = 1,
+                        .cols = NN_OUTPUT(nn).cols,
                         .stride = td.stride,
                         .es = &MAT_AT(td, start_row, batch_ti.cols),
                     };
@@ -311,6 +344,7 @@ int main(int argc, char **argv)
 
                     MAT_AT(NN_INPUT(nn), 0, 0) = nx;
                     MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+                    MAT_AT(NN_INPUT(nn), 0, 2) = 0.5f;
                     nn_forward(nn);
                     uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
                     ImageDrawPixel(&preview_image, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
@@ -324,54 +358,34 @@ int main(int argc, char **argv)
     }
     CloseWindow();
 
-    // for (size_t y = 0; y < img_height; y++)
+    // size_t out_width = 512;
+    // size_t out_height = 512;
+    // uint8_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
+    // S_ASSERT(out_pixels != NULL);
+
+    // for (size_t y = 0; y < out_height; y++)
     // {
-    //     for (size_t x = 0; x < img_width; x++)
+    //     for (size_t x = 0; x < out_width; x++)
     //     {
-    //         float nx = (float)x / (img_width - 1);
-    //         float ny = (float)y / (img_height - 1);
+    //         float nx = (float)x / (out_width - 1);
+    //         float ny = (float)y / (out_height - 1);
 
     //         MAT_AT(NN_INPUT(nn), 0, 0) = nx;
     //         MAT_AT(NN_INPUT(nn), 0, 1) = ny;
     //         nn_forward(nn);
     //         uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
 
-    //         if (pixel)
-    //             printf("%3u ", pixel);
-    //         else
-    //             printf("   ");
+    //         out_pixels[y * out_width + x] = pixel;
     //     }
-    //     printf("\n");
     // }
 
-    size_t out_width = 512;
-    size_t out_height = 512;
-    uint8_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
-    S_ASSERT(out_pixels != NULL);
+    // char *out_file_path = "out.png";
+    // if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
+    // {
+    //     fprintf(stderr, "ERROR: could not save image %s \n", out_file_path);
+    //     return 1;
+    // }
 
-    for (size_t y = 0; y < out_height; y++)
-    {
-        for (size_t x = 0; x < out_width; x++)
-        {
-            float nx = (float)x / (out_width - 1);
-            float ny = (float)y / (out_height - 1);
-
-            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
-            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
-            nn_forward(nn);
-            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
-
-            out_pixels[y * out_width + x] = pixel;
-        }
-    }
-
-    char *out_file_path = "out.png";
-    if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
-    {
-        fprintf(stderr, "ERROR: could not save image %s \n", out_file_path);
-        return 1;
-    }
-
-    printf("Generated %s\n ", out_file_path);
+    // printf("Generated %s\n ", out_file_path);
     return 0;
 }
