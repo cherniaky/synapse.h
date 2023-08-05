@@ -244,7 +244,7 @@ int main(int argc, char **argv)
                 {
                     size_t training_size = batch_size;
                     size_t start_row = batch_size * batch_current;
-                    if (start_row + batch_size >= td.rows)
+                    if (start_row + training_size >= td.rows)
                     {
                         training_size = td.rows - start_row;
                     }
@@ -266,7 +266,7 @@ int main(int argc, char **argv)
                     nn_backprop(nn, g, batch_ti, batch_to);
                     nn_learn(nn, g, rate);
 
-                    epoch_cost += nn_cost(nn, batch_ti, batch_to) / batch_count;
+                    epoch_cost += nn_cost(nn, batch_ti, batch_to) / (batch_count * epoch_per_frame);
                 }
 
                 epochs++;
