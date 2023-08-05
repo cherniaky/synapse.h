@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <raylib.h>
+#include <raymath.h>
 #include <time.h>
 
 #include "dev_deps/stb_image.h"
@@ -117,14 +118,23 @@ void plot_cost(Cost_Plot cost_da, int x_offset, int y_offset, int render_w, int 
     size_t n = cost_da.count;
     if (n < 100)
         n = 100;
+
+    size_t start = 1;
+
+    if (cost_da.count > 200)
+    {
+        start = cost_da.count - 200;
+        n = 200;
+    }
+
     float x_padding = (float)(render_w / n);
 
-    for (size_t i = 1; i < cost_da.count; i++)
+    for (size_t i = start; i < cost_da.count; i++)
     {
         float y_start = y_offset + (1 - cost_da.items[i - 1] / max) * render_h;
-        float x_start = x_offset + x_padding * (i - 1);
+        float x_start = x_offset + x_padding * (i - 1 - start);
         float y_end = y_offset + (1 - cost_da.items[i] / max) * render_h;
-        float x_end = x_offset + x_padding * (i);
+        float x_end = x_offset + x_padding * (i - start);
         DrawLine((int)x_start, (int)y_start, (int)x_end, (int)y_end, WHITE);
     }
     float y_start = y_offset + render_h;
@@ -194,7 +204,7 @@ int main(int argc, char **argv)
     }
     fprintf(stdout, "%s is %dx%d %d bits\n", img2_file_path, img2_width, img2_height, n2 * 8);
 
-    size_t arch[] = {3, 7, 7, 7, 7, 6, 3, 1};
+    size_t arch[] = {3, 7, 7, 6, 3, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
@@ -243,9 +253,10 @@ int main(int argc, char **argv)
 
     SetTargetFPS(60);
 
-    img1_height = 64;
-    img1_width = 64;
-    Image preview_image = GenImageColor(img1_width, img1_height, BLACK);
+    size_t preview_image_height = img1_height;
+    size_t preview_image_width = img1_width;
+
+    Image preview_image = GenImageColor(preview_image_width, preview_image_height, BLACK);
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
     float rate = 2;
@@ -256,6 +267,9 @@ int main(int argc, char **argv)
     Cost_Plot cost_da = {0};
     size_t max_epoch = 100000;
     bool paused = false;
+
+    float scroll = 0.5;
+    bool scroll_dragging = false;
 
     while (!WindowShouldClose())
     {
@@ -334,58 +348,101 @@ int main(int argc, char **argv)
         nn_render_raylib(nn, x_offset, y_offset, render_w, render_h);
 
         x_offset += render_w;
-        {
-            for (size_t y = 0; y < img1_height; y++)
-            {
-                for (size_t x = 0; x < img1_width; x++)
-                {
-                    float nx = (float)x / (img1_width - 1);
-                    float ny = (float)y / (img1_height - 1);
 
-                    MAT_AT(NN_INPUT(nn), 0, 0) = nx;
-                    MAT_AT(NN_INPUT(nn), 0, 1) = ny;
-                    MAT_AT(NN_INPUT(nn), 0, 2) = 0.5f;
-                    nn_forward(nn);
-                    uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
-                    ImageDrawPixel(&preview_image, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
-                    // preview_texture = LoadTextureFromImage(preview_image);
+        for (size_t y = 0; y < preview_image_height; y++)
+        {
+            for (size_t x = 0; x < preview_image_width; x++)
+            {
+                float nx = (float)x / (preview_image_width - 1);
+                float ny = (float)y / (preview_image_height - 1);
+
+                MAT_AT(NN_INPUT(nn), 0, 0) = nx;
+                MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+                MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
+                nn_forward(nn);
+                uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+                ImageDrawPixel(&preview_image, x, y, CLITERAL(Color){pixel, pixel, pixel, 255});
+            }
+        }
+        UpdateTexture(preview_texture, preview_image.data);
+        DrawTextureEx(preview_texture, CLITERAL(Vector2){x_offset, y_offset}, 0.f, 10, WHITE);
+
+        {
+
+            Vector2 size = {preview_image_width * 10, render_h * 0.1};
+            Vector2 rec_position = {x_offset, y_offset + preview_image_height * 12};
+            float radius = size.y / 2 - 2;
+
+            DrawRectangleV(rec_position, size, WHITE);
+            Vector2 knob_position = {rec_position.x + size.x * scroll, rec_position.y + size.y / 2};
+            DrawCircleV(knob_position, radius, RED);
+
+            if (scroll_dragging)
+            {
+                Vector2 mouse = GetMousePosition();
+                float x_position = mouse.x;
+                if (x_position < rec_position.x)
+                {
+                    x_position = rec_position.x + radius;
                 }
-                UpdateTexture(preview_texture, preview_image.data);
-                DrawTextureEx(preview_texture, CLITERAL(Vector2){x_offset, y_offset}, 0.f, 5, WHITE);
+                if (x_position > rec_position.x + size.x)
+                {
+                    x_position = rec_position.x + size.x - radius;
+                }
+
+                x_position -= rec_position.x;
+                x_position = x_position / size.x;
+
+                scroll = x_position;
+            }
+
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                Vector2 mouse = GetMousePosition();
+                if (Vector2Distance(mouse, knob_position) <= radius)
+                {
+                    scroll_dragging = true;
+                }
+            }
+            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+            {
+                scroll_dragging = false;
             }
         }
         EndDrawing();
     }
     CloseWindow();
 
-    // size_t out_width = 512;
-    // size_t out_height = 512;
-    // uint8_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
-    // S_ASSERT(out_pixels != NULL);
+    return 0;
 
-    // for (size_t y = 0; y < out_height; y++)
-    // {
-    //     for (size_t x = 0; x < out_width; x++)
-    //     {
-    //         float nx = (float)x / (out_width - 1);
-    //         float ny = (float)y / (out_height - 1);
+    size_t out_width = 512;
+    size_t out_height = 512;
+    uint8_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
+    S_ASSERT(out_pixels != NULL);
 
-    //         MAT_AT(NN_INPUT(nn), 0, 0) = nx;
-    //         MAT_AT(NN_INPUT(nn), 0, 1) = ny;
-    //         nn_forward(nn);
-    //         uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
+    for (size_t y = 0; y < out_height; y++)
+    {
+        for (size_t x = 0; x < out_width; x++)
+        {
+            float nx = (float)x / (out_width - 1);
+            float ny = (float)y / (out_height - 1);
 
-    //         out_pixels[y * out_width + x] = pixel;
-    //     }
-    // }
+            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
+            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+            nn_forward(nn);
+            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
 
-    // char *out_file_path = "out.png";
-    // if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
-    // {
-    //     fprintf(stderr, "ERROR: could not save image %s \n", out_file_path);
-    //     return 1;
-    // }
+            out_pixels[y * out_width + x] = pixel;
+        }
+    }
 
-    // printf("Generated %s\n ", out_file_path);
+    char *out_file_path = "out.png";
+    if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
+    {
+        fprintf(stderr, "ERROR: could not save image %s \n", out_file_path);
+        return 1;
+    }
+
+    printf("Generated %s\n ", out_file_path);
     return 0;
 }

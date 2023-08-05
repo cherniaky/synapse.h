@@ -5,6 +5,7 @@
         "*.rmd": "markdown",
         "synapse.h": "c",
         "stb_image.h": "c",
-        "stb_image_write.h": "c"
+        "stb_image_write.h": "c",
+        "raylib.h": "c"
     }
 }
