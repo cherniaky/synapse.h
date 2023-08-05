@@ -369,9 +369,9 @@ int main(int argc, char **argv)
 
         {
 
-            Vector2 size = {preview_image_width * 10, render_h * 0.1};
+            Vector2 size = {preview_image_width * 10, render_h * 0.01};
             Vector2 rec_position = {x_offset, y_offset + preview_image_height * 12};
-            float radius = size.y / 2 - 2;
+            float radius = render_h * 0.05;
 
             DrawRectangleV(rec_position, size, WHITE);
             Vector2 knob_position = {rec_position.x + size.x * scroll, rec_position.y + size.y / 2};
