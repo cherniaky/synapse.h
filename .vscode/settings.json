@@ -6,6 +6,8 @@
         "synapse.h": "c",
         "stb_image.h": "c",
         "stb_image_write.h": "c",
-        "raylib.h": "c"
+        "raylib.h": "c",
+        "assert.h": "c",
+        "wait.h": "c"
     }
 }

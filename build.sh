@@ -3,7 +3,7 @@
 # exec=xor
 # exec=gym
 # exec=xor.gen
-exec=img2mat
+exec=img2nn
 
 rm $exec 
 

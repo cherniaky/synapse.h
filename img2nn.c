@@ -253,8 +253,8 @@ int main(int argc, char **argv)
 
     SetTargetFPS(60);
 
-    size_t preview_image_height = img1_height;
-    size_t preview_image_width = img1_width;
+    size_t preview_image_height = img1_height * 3;
+    size_t preview_image_width = img1_width * 3;
 
     Image preview_image = GenImageColor(preview_image_width, preview_image_height, BLACK);
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
@@ -365,12 +365,12 @@ int main(int argc, char **argv)
             }
         }
         UpdateTexture(preview_texture, preview_image.data);
-        DrawTextureEx(preview_texture, CLITERAL(Vector2){x_offset, y_offset}, 0.f, 10, WHITE);
+        DrawTextureEx(preview_texture, CLITERAL(Vector2){x_offset, y_offset}, 0.f, 4, WHITE);
 
         {
 
-            Vector2 size = {preview_image_width * 10, render_h * 0.01};
-            Vector2 rec_position = {x_offset, y_offset + preview_image_height * 12};
+            Vector2 size = {render_w * 0.85, render_h * 0.01};
+            Vector2 rec_position = {x_offset, y_offset + render_h * 1};
             float radius = render_h * 0.05;
 
             DrawRectangleV(rec_position, size, WHITE);
