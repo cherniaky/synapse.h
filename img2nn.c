@@ -3,6 +3,10 @@
 #include <raylib.h>
 #include <raymath.h>
 #include <time.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "dev_deps/stb_image.h"
 #include "dev_deps/stb_image_write.h"
@@ -31,6 +35,10 @@ typedef struct
                                                                                        \
         (da)->items[(da)->count++] = (item);                                           \
     } while (0)
+
+#define out_width 512
+#define out_height 512
+uint32_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
 
 void nn_render_raylib(NN nn, int x_offset, int y_offset, int w, int h)
 {
@@ -151,6 +159,144 @@ char *args_shift(int *argc, char ***argv)
     (*argc)--;
     (*argv)++;
     return result;
+}
+
+int render_upscale_video(NN nn, const char *out_file_path)
+{
+    int pipefd[2];
+
+    if (pipe(pipefd) < 0)
+    {
+        fprintf(stderr, "ERROR: could not create a pipe: %s\n", strerror(errno));
+        return 1;
+    }
+
+    pid_t child = fork();
+    if (child < 0)
+    {
+        fprintf(stderr, "ERROR: could not fork a child: %s\n", strerror(errno));
+        return 1;
+    }
+
+    if (child == 0)
+    {
+        if (dup2(pipefd[READ_END], STDIN_FILENO) < 0)
+        {
+            fprintf(stderr, "ERROR: could not reopen read end as stdin: %s\n", strerror(errno));
+        }
+        close(pipefd[WRITE_END]);
+
+        int ret = execlp("ffmpeg", "ffmpeg",
+                         "-loglevel", "verbose",
+                         "-y",
+                         "-f", "rawvideo",
+                         "-pix_fmt", "rgba",
+                         "-s", STR(WIDTH) "x" STR(HEIGHT),
+                         "-r", STR(FPS),
+                         "-an",
+                         "-i", "-",
+                         "-c:v", "libx264",
+                         out_file_path,
+                         NULL);
+        if (ret < 0)
+        {
+            fprintf(stderr, "ERROR: could not run ffmpeg as child process: %s\n", strerror(errno));
+        }
+
+        assert(0 && "unreachable");
+    }
+
+    close(pipefd[READ_END]);
+
+    // Olivec_Canvas oc = olivec_canvas(pixels, WIDTH, HEIGHT, WIDTH);
+
+    // size_t duration = 10;
+    // float x = WIDTH / 2;
+    // float y = HEIGHT / 2;
+    // float r = HEIGHT / 8;
+    // float dx = 100;
+    // float dy = 100;
+    // float dt = 1.f / FPS;
+
+    // for (size_t i = 0; i < FPS * duration; i++)
+    // {
+    //     float nx = x + dx * dt;
+    //     if (0 + r < nx && nx < WIDTH - r)
+    //     {
+    //         x = nx;
+    //     }
+    //     else
+    //     {
+    //         dx = -dx;
+    //     }
+
+    //     float ny = y + dy * dt;
+    //     if (0 + r < ny && ny < HEIGHT - r)
+    //     {
+    //         y = ny;
+    //     }
+    //     else
+    //     {
+    //         dy = -dy;
+    //     }
+
+    //     olivec_fill(oc, 0xFF181818);
+    //     olivec_circle(oc, x, y, r, 0xFF0000FF);
+    //     write(pipefd[WRITE_END], pixels, sizeof(*pixels) * WIDTH * HEIGHT);
+    // }
+    close(pipefd[WRITE_END]);
+
+    wait(NULL);
+
+    printf("Done rendering the video. The child's pid is %d\n", child);
+
+    return 0;
+}
+
+void render_single_out_image(NN nn, float scroll)
+{
+    for (size_t y = 0; y < out_height; y++)
+    {
+        for (size_t x = 0; x < out_width; x++)
+        {
+            float nx = (float)x / (out_width - 1);
+            float ny = (float)y / (out_height - 1);
+
+            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
+            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+            MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
+            nn_forward(nn);
+            float activation = MAT_AT(NN_OUTPUT(nn), 0, 0);
+            if (activation < 0)
+            {
+                activation = 0;
+            }
+            if (activation > 1)
+            {
+                activation = 1;
+            }
+
+            uint32_t bright = activation * 255.f;
+            uint32_t pixel = 0xFF000000 | bright | (bright << 8) | (bright << 16);
+
+            out_pixels[y * out_width + x] = pixel;
+        }
+    }
+}
+
+int render_upscale_screenshot(NN nn, char *out_file_path, float scroll)
+{
+    S_ASSERT(out_pixels != NULL);
+
+    render_single_out_image(nn, scroll);
+
+    if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
+    {
+        fprintf(stderr, "ERROR: could not save image %s \n", out_file_path);
+        return 1;
+    }
+
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -276,6 +422,20 @@ int main(int argc, char **argv)
         if (IsKeyPressed(KEY_SPACE))
         {
             paused = !paused;
+        }
+        if (IsKeyPressed(KEY_R))
+        {
+            epochs = 0;
+            nn_rand(nn, -1, 1);
+            cost_da.count = 0;
+        }
+        if (IsKeyPressed(KEY_S))
+        {
+            render_upscale_screenshot(nn, "upscale.png", scroll);
+        }
+        if (IsKeyPressed(KEY_X))
+        {
+            render_upscale_video(nn);
         }
 
         WINDOW_HEIGHT = GetRenderHeight();
@@ -415,34 +575,5 @@ int main(int argc, char **argv)
 
     return 0;
 
-    size_t out_width = 512;
-    size_t out_height = 512;
-    uint8_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
-    S_ASSERT(out_pixels != NULL);
-
-    for (size_t y = 0; y < out_height; y++)
-    {
-        for (size_t x = 0; x < out_width; x++)
-        {
-            float nx = (float)x / (out_width - 1);
-            float ny = (float)y / (out_height - 1);
-
-            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
-            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
-            nn_forward(nn);
-            uint8_t pixel = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.f;
-
-            out_pixels[y * out_width + x] = pixel;
-        }
-    }
-
-    char *out_file_path = "out.png";
-    if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
-    {
-        fprintf(stderr, "ERROR: could not save image %s \n", out_file_path);
-        return 1;
-    }
-
-    printf("Generated %s\n ", out_file_path);
     return 0;
 }
