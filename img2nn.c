@@ -36,10 +36,10 @@ typedef struct
         (da)->items[(da)->count++] = (item);                                           \
     } while (0)
 
-#define out_width 512
-#define out_height 512
+#define out_width 256
+#define out_height 256
 uint32_t out_pixels[out_width * out_height];
-#define FPS 60
+#define FPS 30
 
 #define STR2(x) #x
 #define STR(x) STR2(x)
@@ -246,20 +246,32 @@ int render_upscale_video(NN nn, float duration, const char *out_file_path)
 
     close(pipefd[READ_END]);
 
-    // Olivec_Canvas oc = olivec_canvas(pixels, WIDTH, HEIGHT, WIDTH);
+    typedef struct
+    {
+        float start;
+        float end;
+    } Segment;
 
-    // size_t duration = 10;
-    // float x = WIDTH / 2;
-    // float y = HEIGHT / 2;
-    // float r = HEIGHT / 8;
-    // float dx = 100;
-    // float dy = 100;
-    // float dt = 1.f / FPS;
+    Segment segments[] = {
+        {0, 0},
+        {0, 1},
+        {1, 1},
+        {1, 0},
+    };
+    size_t segments_count = ARRAY_LEN(segments);
+    float segment_lenght = 1.f / segments_count;
+
     size_t frame_count = FPS * duration;
 
     for (size_t i = 0; i < frame_count; i++)
     {
         float a = (float)i / frame_count;
+        size_t segment_index = floorf(a / segment_lenght);
+        Segment segment = segments[segment_index];
+        float segment_progress = a / segment_lenght - segment_index;
+
+        a = segment.start + (segment.end - segment.start) * sqrtf(segment_progress);
+
         render_single_out_image(nn, a);
         write(pipefd[WRITE_END], out_pixels, sizeof(*out_pixels) * out_width * out_height);
     }
@@ -279,7 +291,7 @@ int render_upscale_screenshot(NN nn, char *out_file_path, float scroll)
 
     render_single_out_image(nn, scroll);
 
-    if (!stbi_write_png(out_file_path, out_width, out_height, 1, out_pixels, out_width * sizeof(*out_pixels)))
+    if (!stbi_write_png(out_file_path, out_width, out_height, 4, out_pixels, out_width * sizeof(*out_pixels)))
     {
         fprintf(stderr, "ERROR: could not save image %s \n", out_file_path);
         return 1;
@@ -339,7 +351,7 @@ int main(int argc, char **argv)
     }
     fprintf(stdout, "%s is %dx%d %d bits\n", img2_file_path, img2_width, img2_height, n2 * 8);
 
-    size_t arch[] = {3, 7, 7, 6, 3, 1};
+    size_t arch[] = {3, 11, 11, 11, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
@@ -388,15 +400,16 @@ int main(int argc, char **argv)
 
     SetTargetFPS(60);
 
-    size_t preview_image_height = img1_height * 3;
-    size_t preview_image_width = img1_width * 3;
+    size_t preview_image_height = img1_height;
+    size_t preview_image_width = img1_width;
 
     Image preview_image = GenImageColor(preview_image_width, preview_image_height, BLACK);
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
     float rate = 2;
-    size_t batch_size = td.rows;
+    size_t batch_size = 20;
     size_t batch_count = (td.rows + batch_size - 1) / batch_size;
+    // printf("%ld\n", batch_count);
     size_t epoch_per_frame = 8;
     size_t epochs = 0;
     Cost_Plot cost_da = {0};
@@ -430,6 +443,10 @@ int main(int argc, char **argv)
         WINDOW_HEIGHT = GetRenderHeight();
         WINDOW_WIDTH = GetRenderWidth();
         float epoch_cost = 0;
+        if (epochs > max_epoch * 0.1f)
+        {
+            rate = 0.4;
+        }
 
         if (epochs < max_epoch)
         {
@@ -475,7 +492,7 @@ int main(int argc, char **argv)
 
         char buf[256];
         snprintf(buf, sizeof(buf), "%zu: cost = %f\n", epochs, epoch_cost);
-        if (epochs % 10 == 0)
+        if (epochs % 10 == 0 && !paused)
         {
             da_append(&cost_da, epoch_cost);
         }
@@ -514,7 +531,7 @@ int main(int argc, char **argv)
             }
         }
         UpdateTexture(preview_texture, preview_image.data);
-        DrawTextureEx(preview_texture, CLITERAL(Vector2){x_offset, y_offset}, 0.f, 4, WHITE);
+        DrawTextureEx(preview_texture, CLITERAL(Vector2){x_offset, y_offset}, 0.f, 12, WHITE);
 
         {
 
