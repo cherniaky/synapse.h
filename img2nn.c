@@ -38,7 +38,14 @@ typedef struct
 
 #define out_width 512
 #define out_height 512
-uint32_t *out_pixels = malloc(sizeof(*out_pixels) * out_width * out_height);
+uint32_t out_pixels[out_width * out_height];
+#define FPS 60
+
+#define STR2(x) #x
+#define STR(x) STR2(x)
+
+#define READ_END 0
+#define WRITE_END 1
 
 void nn_render_raylib(NN nn, int x_offset, int y_offset, int w, int h)
 {
@@ -161,7 +168,38 @@ char *args_shift(int *argc, char ***argv)
     return result;
 }
 
-int render_upscale_video(NN nn, const char *out_file_path)
+void render_single_out_image(NN nn, float a)
+{
+    for (size_t y = 0; y < out_height; y++)
+    {
+        for (size_t x = 0; x < out_width; x++)
+        {
+            float nx = (float)x / (out_width - 1);
+            float ny = (float)y / (out_height - 1);
+
+            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
+            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
+            MAT_AT(NN_INPUT(nn), 0, 2) = a;
+            nn_forward(nn);
+            float activation = MAT_AT(NN_OUTPUT(nn), 0, 0);
+            if (activation < 0)
+            {
+                activation = 0;
+            }
+            if (activation > 1)
+            {
+                activation = 1;
+            }
+
+            uint32_t bright = activation * 255.f;
+            uint32_t pixel = 0xFF000000 | bright | (bright << 8) | (bright << 16);
+
+            out_pixels[y * out_width + x] = pixel;
+        }
+    }
+}
+
+int render_upscale_video(NN nn, float duration, const char *out_file_path)
 {
     int pipefd[2];
 
@@ -191,7 +229,7 @@ int render_upscale_video(NN nn, const char *out_file_path)
                          "-y",
                          "-f", "rawvideo",
                          "-pix_fmt", "rgba",
-                         "-s", STR(WIDTH) "x" STR(HEIGHT),
+                         "-s", STR(out_width) "x" STR(out_height),
                          "-r", STR(FPS),
                          "-an",
                          "-i", "-",
@@ -217,33 +255,15 @@ int render_upscale_video(NN nn, const char *out_file_path)
     // float dx = 100;
     // float dy = 100;
     // float dt = 1.f / FPS;
+    size_t frame_count = FPS * duration;
 
-    // for (size_t i = 0; i < FPS * duration; i++)
-    // {
-    //     float nx = x + dx * dt;
-    //     if (0 + r < nx && nx < WIDTH - r)
-    //     {
-    //         x = nx;
-    //     }
-    //     else
-    //     {
-    //         dx = -dx;
-    //     }
+    for (size_t i = 0; i < frame_count; i++)
+    {
+        float a = (float)i / frame_count;
+        render_single_out_image(nn, a);
+        write(pipefd[WRITE_END], out_pixels, sizeof(*out_pixels) * out_width * out_height);
+    }
 
-    //     float ny = y + dy * dt;
-    //     if (0 + r < ny && ny < HEIGHT - r)
-    //     {
-    //         y = ny;
-    //     }
-    //     else
-    //     {
-    //         dy = -dy;
-    //     }
-
-    //     olivec_fill(oc, 0xFF181818);
-    //     olivec_circle(oc, x, y, r, 0xFF0000FF);
-    //     write(pipefd[WRITE_END], pixels, sizeof(*pixels) * WIDTH * HEIGHT);
-    // }
     close(pipefd[WRITE_END]);
 
     wait(NULL);
@@ -251,37 +271,6 @@ int render_upscale_video(NN nn, const char *out_file_path)
     printf("Done rendering the video. The child's pid is %d\n", child);
 
     return 0;
-}
-
-void render_single_out_image(NN nn, float scroll)
-{
-    for (size_t y = 0; y < out_height; y++)
-    {
-        for (size_t x = 0; x < out_width; x++)
-        {
-            float nx = (float)x / (out_width - 1);
-            float ny = (float)y / (out_height - 1);
-
-            MAT_AT(NN_INPUT(nn), 0, 0) = nx;
-            MAT_AT(NN_INPUT(nn), 0, 1) = ny;
-            MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
-            nn_forward(nn);
-            float activation = MAT_AT(NN_OUTPUT(nn), 0, 0);
-            if (activation < 0)
-            {
-                activation = 0;
-            }
-            if (activation > 1)
-            {
-                activation = 1;
-            }
-
-            uint32_t bright = activation * 255.f;
-            uint32_t pixel = 0xFF000000 | bright | (bright << 8) | (bright << 16);
-
-            out_pixels[y * out_width + x] = pixel;
-        }
-    }
 }
 
 int render_upscale_screenshot(NN nn, char *out_file_path, float scroll)
@@ -406,7 +395,7 @@ int main(int argc, char **argv)
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
     float rate = 2;
-    size_t batch_size = 28;
+    size_t batch_size = td.rows;
     size_t batch_count = (td.rows + batch_size - 1) / batch_size;
     size_t epoch_per_frame = 8;
     size_t epochs = 0;
@@ -435,7 +424,7 @@ int main(int argc, char **argv)
         }
         if (IsKeyPressed(KEY_X))
         {
-            render_upscale_video(nn);
+            render_upscale_video(nn, 5, "output.mp4");
         }
 
         WINDOW_HEIGHT = GetRenderHeight();
