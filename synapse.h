@@ -21,6 +21,7 @@
 
 float rand_float(void);
 float sigmoidf(float x);
+float reluf(float x);
 
 typedef struct
 {
@@ -37,7 +38,7 @@ void mat_save(FILE *out, Mat m);
 Mat mat_load(FILE *in);
 void mat_dot(Mat dist, Mat a, Mat b);
 void mat_sum(Mat dist, Mat a);
-void mat_sig(Mat m);
+void mat_act(Mat m);
 void mat_print(Mat m, const char *name, size_t padding);
 void mat_rand(Mat m, float low, float high);
 Mat mat_row(Mat m, size_t row);
@@ -79,6 +80,11 @@ float rand_float()
 float sigmoidf(float x)
 {
     return 1.f / (1.f + expf(-x));
+}
+
+float reluf(float x)
+{
+    return (x > 0) * x;
 }
 
 Mat mat_alloc(size_t rows, size_t cols)
@@ -162,13 +168,14 @@ void mat_sum(Mat dist, Mat a)
     }
 }
 
-void mat_sig(Mat m)
+void mat_act(Mat m)
 {
     for (size_t i = 0; i < m.rows; i++)
     {
         for (size_t j = 0; j < m.cols; j++)
         {
-            MAT_AT(m, i, j) = sigmoidf(MAT_AT(m, i, j));
+            // MAT_AT(m, i, j) = sigmoidf(MAT_AT(m, i, j));
+            MAT_AT(m, i, j) = reluf(MAT_AT(m, i, j));
         }
     }
 }
@@ -323,7 +330,7 @@ void nn_forward(NN nn)
     {
         mat_dot(nn.as[i + 1], nn.as[i], nn.ws[i]);
         mat_sum(nn.as[i + 1], nn.bs[i]);
-        mat_sig(nn.as[i + 1]);
+        mat_act(nn.as[i + 1]);
     }
 }
 
@@ -414,7 +421,9 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
             {
                 for (size_t b = 0; b < g.as[l + 1].cols; b++)
                 {
-                    MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
+                    // MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
+                    float v = MAT_AT(nn.as[l + 1], m, b);
+                    MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * (v > 0);
                 }
             }
 

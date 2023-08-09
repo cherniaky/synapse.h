@@ -351,7 +351,7 @@ int main(int argc, char **argv)
     }
     fprintf(stdout, "%s is %dx%d %d bits\n", img2_file_path, img2_width, img2_height, n2 * 8);
 
-    size_t arch[] = {3, 11, 11, 11, 1};
+    size_t arch[] = {3, 11,11,11,11, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
@@ -391,7 +391,7 @@ int main(int argc, char **argv)
         }
     }
 
-    nn_rand(nn, -2, 2);
+    nn_rand(nn, 0, 2);
 
     int WINDOW_FACTOR = 80;
     int WINDOW_HEIGHT = 9 * WINDOW_FACTOR;
@@ -406,7 +406,7 @@ int main(int argc, char **argv)
     Image preview_image = GenImageColor(preview_image_width, preview_image_height, BLACK);
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
-    float rate = 2;
+    float rate = 0.00000001f;
     size_t batch_size = 20;
     size_t batch_count = (td.rows + batch_size - 1) / batch_size;
     // printf("%ld\n", batch_count);
