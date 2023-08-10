@@ -8,6 +8,9 @@
 #include <math.h>
 #include <stdint.h>
 
+#define NN_ACT ACT_RELU
+#define NN_RELU_PARAM 0.01f
+
 #ifndef S_CALLOC
 #define S_CALLOC calloc
 #endif // S_CALLOC
@@ -18,6 +21,12 @@
 #endif // S_ASSERT
 
 #define ARRAY_LEN(xs) sizeof((xs)) / sizeof((xs)[0])
+
+typedef enum
+{
+    ACT_SIG,
+    ACT_RELU
+} Act;
 
 float rand_float(void);
 float sigmoidf(float x);
@@ -84,7 +93,7 @@ float sigmoidf(float x)
 
 float reluf(float x)
 {
-    return (x > 0) * x;
+    return x > 0 ? x : x * NN_RELU_PARAM;
 }
 
 Mat mat_alloc(size_t rows, size_t cols)
@@ -174,8 +183,15 @@ void mat_act(Mat m)
     {
         for (size_t j = 0; j < m.cols; j++)
         {
-            // MAT_AT(m, i, j) = sigmoidf(MAT_AT(m, i, j));
-            MAT_AT(m, i, j) = reluf(MAT_AT(m, i, j));
+            switch (NN_ACT)
+            {
+            case ACT_SIG:
+                MAT_AT(m, i, j) = sigmoidf(MAT_AT(m, i, j));
+                break;
+            case ACT_RELU:
+                MAT_AT(m, i, j) = reluf(MAT_AT(m, i, j));
+                break;
+            }
         }
     }
 }
@@ -421,9 +437,17 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
             {
                 for (size_t b = 0; b < g.as[l + 1].cols; b++)
                 {
-                    // MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * MAT_AT(nn.as[l + 1], m, b) * (1 - MAT_AT(nn.as[l + 1], m, b));
                     float v = MAT_AT(nn.as[l + 1], m, b);
-                    MAT_AT(g.as[l + 1], m, b) = MAT_AT(g.as[l + 1], m, b) * (v > 0);
+                    switch (NN_ACT)
+                    {
+                    case ACT_SIG:
+                        MAT_AT(g.as[l + 1], m, b) = v * (1 - v);
+                        break;
+                    case ACT_RELU:
+                        MAT_AT(g.as[l + 1], m, b) = v > 0 ? 1 : NN_RELU_PARAM;
+                        break;
+                    }
+                    MAT_AT(g.as[l + 1], m, b) *= MAT_AT(g.as[l + 1], m, b);
                 }
             }
 
