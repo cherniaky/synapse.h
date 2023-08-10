@@ -300,6 +300,7 @@ int render_upscale_screenshot(NN nn, char *out_file_path, float scroll)
     return 0;
 }
 
+
 int main(int argc, char **argv)
 {
     srand(time(0));
@@ -406,7 +407,7 @@ int main(int argc, char **argv)
     Image preview_image = GenImageColor(preview_image_width, preview_image_height, BLACK);
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
-    float rate = 2.f;
+    float rate = 1.f;
     size_t batch_size = 20;
     size_t batch_count = (td.rows + batch_size - 1) / batch_size;
     size_t epoch_per_frame = 2;
