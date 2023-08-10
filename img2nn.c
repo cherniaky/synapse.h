@@ -351,7 +351,7 @@ int main(int argc, char **argv)
     }
     fprintf(stdout, "%s is %dx%d %d bits\n", img2_file_path, img2_width, img2_height, n2 * 8);
 
-    size_t arch[] = {3, 11, 11, 11, 11, 11, 11, 1};
+    size_t arch[] = {3, 11, 11, 9, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
@@ -406,17 +406,16 @@ int main(int argc, char **argv)
     Image preview_image = GenImageColor(preview_image_width, preview_image_height, BLACK);
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
-    // float rate = 2.f;
-    float rate = 0.0003;
+    float rate = 2.f;
     size_t batch_size = 20;
     size_t batch_count = (td.rows + batch_size - 1) / batch_size;
-    size_t epoch_per_frame = 8;
+    size_t epoch_per_frame = 2;
     size_t epochs = 0;
     Cost_Plot cost_da = {0};
     size_t max_epoch = 100000;
-    bool paused = true;
+    bool paused = false;
 
-    float scroll = 0.5;
+    float scroll = 0;
     bool scroll_dragging = false;
 
     while (!WindowShouldClose())
@@ -526,7 +525,7 @@ int main(int argc, char **argv)
                 MAT_AT(NN_INPUT(nn), 0, 1) = ny;
                 MAT_AT(NN_INPUT(nn), 0, 2) = scroll;
                 nn_forward(nn);
-                uint8_t a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+                float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
                 if (a > 1)
                 {
                     a = 1;

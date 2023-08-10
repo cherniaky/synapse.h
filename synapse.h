@@ -8,7 +8,7 @@
 #include <math.h>
 #include <stdint.h>
 
-#define NN_ACT ACT_RELU
+#define NN_ACT ACT_SIG
 #define NN_RELU_PARAM 0.01f
 
 #ifndef S_CALLOC
@@ -25,12 +25,15 @@
 typedef enum
 {
     ACT_SIG,
-    ACT_RELU
+    ACT_RELU,
+    ACT_TANH,
+    ACT_SIN
 } Act;
 
 float rand_float(void);
 float sigmoidf(float x);
 float reluf(float x);
+float tanhf(float x);
 
 typedef struct
 {
@@ -94,6 +97,13 @@ float sigmoidf(float x)
 float reluf(float x)
 {
     return x > 0 ? x : x * NN_RELU_PARAM;
+}
+
+float tanhf(float x)
+{
+    float ex = expf(x);
+    float enx = expf(-x);
+    return (ex - enx) / (ex + enx);
 }
 
 Mat mat_alloc(size_t rows, size_t cols)
@@ -191,6 +201,14 @@ void mat_act(Mat m)
             case ACT_RELU:
                 MAT_AT(m, i, j) = reluf(MAT_AT(m, i, j));
                 break;
+            case ACT_TANH:
+                MAT_AT(m, i, j) = tanhf(MAT_AT(m, i, j));
+                break;
+            case ACT_SIN:
+                MAT_AT(m, i, j) = sinf(MAT_AT(m, i, j));
+                break;
+            default:
+                S_ASSERT(0 && "unreacheble");
             }
         }
     }
@@ -438,16 +456,25 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
                 for (size_t b = 0; b < g.as[l + 1].cols; b++)
                 {
                     float v = MAT_AT(nn.as[l + 1], m, b);
+                    float q = 0;
                     switch (NN_ACT)
                     {
                     case ACT_SIG:
-                        MAT_AT(g.as[l + 1], m, b) = v * (1 - v);
+                        q = v * (1 - v);
                         break;
                     case ACT_RELU:
-                        MAT_AT(g.as[l + 1], m, b) = v > 0 ? 1 : NN_RELU_PARAM;
+                        q = v >= 0 ? 1 : NN_RELU_PARAM;
                         break;
+                    case ACT_TANH:
+                        q = 1 - v * v;
+                        break;
+                    case ACT_SIN:
+                        q = sqrtf(1 - v * v);
+                        break;
+                    default:
+                        S_ASSERT(0 && "unreacheble");
                     }
-                    MAT_AT(g.as[l + 1], m, b) *= MAT_AT(g.as[l + 1], m, b);
+                    MAT_AT(g.as[l + 1], m, b) = q * MAT_AT(g.as[l + 1], m, b);
                 }
             }
 
