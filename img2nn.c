@@ -20,7 +20,7 @@
 #define SYNAPSE_ENABLE_GYM
 #include "synapse.h"
 
-size_t arch[] = {3, 11, 11, 9, 1};
+size_t arch[] = {3, 11, 11, 11, 11, 1};
 size_t max_epoch = 100 * 1000;
 size_t batches_per_frame = 200;
 size_t batch_size = 28;
@@ -410,9 +410,9 @@ int main(int argc, char **argv)
             r.x = 0;
             r.y = h / 2 - r.h / 2;
 
-            gym_layout_begin(GLO_HORZ, r, 3, 0);
+            gym_layout_begin(GLO_HORZ, r, 3, 10);
             gym_plot(plot, gym_layout_slot());
-            gym_render_nn(nn, gym_layout_slot());
+            gym_render_nn_weights_heatmap(nn, gym_layout_slot());
             Gym_Rect preview_slot = gym_layout_slot();
             gym_layout_begin(GLO_VERT, preview_slot, 3, 0);
             gym_layout_begin(GLO_HORZ, gym_layout_slot(), 2, 0);
