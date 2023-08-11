@@ -8,6 +8,7 @@
         "stb_image_write.h": "c",
         "raylib.h": "c",
         "assert.h": "c",
-        "wait.h": "c"
+        "wait.h": "c",
+        "gym.h": "c"
     }
 }

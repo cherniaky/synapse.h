@@ -16,8 +16,10 @@
 
 #define NN_ACT ACT_RELU
 
+#define GYM_IMPLEMENTATION
+#include "gym.h"
+
 #define SYNAPSE_IMPLEMENTATION
-#define SYNAPSE_ENABLE_GYM
 #include "synapse.h"
 
 size_t arch[] = {3, 11, 11, 11, 11, 1};
