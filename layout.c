@@ -5,42 +5,43 @@
 
 #include <raylib.h>
 
-// typedef struct
-// {
-//     float x;
-//     float y;
-//     float width;
-//     float height;
-// } Rectangle;
-
-void widget(Rectangle r, Color color)
+typedef struct
 {
-    if (CheckCollisionPointRec(GetMousePosition(), r))
+    float x;
+    float y;
+    float width;
+    float height;
+} Gym_Rect;
+
+void widget(Gym_Rect r, Color color)
+{
+    Rectangle rr = {.height = r.height, .width = r.width, .x = r.x, .y = r.y};
+    if (CheckCollisionPointRec(GetMousePosition(), rr))
     {
         color = ColorBrightness(color, 0.4f);
     }
 
-    DrawRectangleRec(r, color);
+    DrawRectangleRec(rr, color);
 }
 
 typedef enum
 {
-    LO_HORZ,
-    LO_VERT,
-} Layout_Orient;
+    GLO_HORZ,
+    GLO_VERT,
+} Gym_Layout_Orient;
 
 typedef struct
 {
-    Layout_Orient orient;
-    Rectangle rect;
+    Gym_Layout_Orient orient;
+    Gym_Rect rect;
     size_t elements_count;
     size_t i;
     float gap;
-} Layout;
+} Gym_Layout;
 
-Layout make_layout(Layout_Orient orient, Rectangle rect, size_t count, float gap)
+Gym_Layout make_layout(Gym_Layout_Orient orient, Gym_Rect rect, size_t count, float gap)
 {
-    Layout l = {
+    Gym_Layout l = {
         .orient = orient,
         .rect = rect,
         .elements_count = count,
@@ -49,9 +50,9 @@ Layout make_layout(Layout_Orient orient, Rectangle rect, size_t count, float gap
     return l;
 }
 
-Rectangle make_layout_rect(size_t x, size_t y, size_t width, size_t height)
+Gym_Rect make_layout_rect(size_t x, size_t y, size_t width, size_t height)
 {
-    Rectangle rect = {
+    Gym_Rect rect = {
         .x = x,
         .y = y,
         .height = height,
@@ -60,18 +61,18 @@ Rectangle make_layout_rect(size_t x, size_t y, size_t width, size_t height)
     return rect;
 }
 
-Rectangle layout_slot(Layout *l, const char *filename, int line)
+Gym_Rect layout_slot(Gym_Layout *l, const char *filename, int line)
 {
     if (l->i >= l->elements_count)
     {
-        fprintf(stderr, "%s:%d: ERROR: Layout overflow\n", filename, line);
+        fprintf(stderr, "%s:%d: ERROR: Gym_Layout overflow\n", filename, line);
         exit(1);
     }
 
-    Rectangle r = {0};
+    Gym_Rect r = {0};
     switch (l->orient)
     {
-    case LO_HORZ:
+    case GLO_HORZ:
         float width = l->rect.width / l->elements_count;
         r.x = l->rect.x + l->i * width;
         r.y = l->rect.y;
@@ -95,7 +96,7 @@ Rectangle layout_slot(Layout *l, const char *filename, int line)
 
         break;
 
-    case LO_VERT:
+    case GLO_VERT:
         float height = l->rect.height / l->elements_count;
         r.x = l->rect.x;
         r.y = l->rect.y + l->i * height;
@@ -130,7 +131,7 @@ Rectangle layout_slot(Layout *l, const char *filename, int line)
 
 typedef struct
 {
-    Layout *items;
+    Gym_Layout *items;
     size_t count;
     size_t capacity;
 } Layout_Stack;
@@ -149,9 +150,9 @@ typedef struct
         (da)->items[(da)->count++] = (item);                                           \
     } while (0)
 
-void layout_stack_push(Layout_Stack *ls, Layout_Orient orient, Rectangle rect, size_t count, float padding)
+void gym_layout_stack_push(Layout_Stack *ls, Gym_Layout_Orient orient, Gym_Rect rect, size_t count, float padding)
 {
-    Layout l = make_layout(orient, rect, count, padding);
+    Gym_Layout l = make_layout(orient, rect, count, padding);
     da_append(ls, l);
 }
 void layout_stack_pop(Layout_Stack *ls)
@@ -160,13 +161,13 @@ void layout_stack_pop(Layout_Stack *ls)
     ls->count--;
 }
 
-Rectangle layout_stack_slot_rect_loc(Layout_Stack *ls, const char *filename, int line)
+Gym_Rect gym_layout_stack_slot_loc(Layout_Stack *ls, const char *filename, int line)
 {
     assert(ls->count > 0);
     return layout_slot(&ls->items[ls->count - 1], filename, line);
 }
 
-#define layout_stack_slot_rect(ls) layout_stack_slot_rect_loc(ls, __FILE__, __LINE__)
+#define gym_layout_stack_slot(ls) gym_layout_stack_slot_loc(ls, __FILE__, __LINE__)
 
 int main(void)
 {
@@ -175,7 +176,7 @@ int main(void)
     size_t height = 9 * factor;
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(width, height, "Layout");
+    InitWindow(width, height, "Gym_Layout");
     SetTargetFPS(60);
 
     Layout_Stack ls = {0};
@@ -190,22 +191,22 @@ int main(void)
         BeginDrawing();
         ClearBackground(BLACK);
 
-        layout_stack_push(&ls, LO_HORZ, make_layout_rect(0, padding, window_width, window_height - padding * 2), 3, gap);
+        gym_layout_stack_push(&ls, GLO_HORZ, make_layout_rect(0, padding, window_width, window_height - padding * 2), 3, gap);
 
-        widget(layout_stack_slot_rect(&ls), RED);
-        widget(layout_stack_slot_rect(&ls), GREEN);
+        widget(gym_layout_stack_slot(&ls), RED);
+        widget(gym_layout_stack_slot(&ls), GREEN);
 
-        layout_stack_push(&ls, LO_VERT, layout_stack_slot_rect(&ls), 3, gap);
+        gym_layout_stack_push(&ls, GLO_VERT, gym_layout_stack_slot(&ls), 3, gap);
 
-        widget(layout_stack_slot_rect(&ls), BLUE);
-        layout_stack_push(&ls, LO_VERT, layout_stack_slot_rect(&ls), 3, gap);
+        widget(gym_layout_stack_slot(&ls), BLUE);
+        gym_layout_stack_push(&ls, GLO_VERT, gym_layout_stack_slot(&ls), 3, gap);
 
-        widget(layout_stack_slot_rect(&ls), BLUE);
-        widget(layout_stack_slot_rect(&ls), YELLOW);
-        widget(layout_stack_slot_rect(&ls), WHITE);
+        widget(gym_layout_stack_slot(&ls), BLUE);
+        widget(gym_layout_stack_slot(&ls), YELLOW);
+        widget(gym_layout_stack_slot(&ls), WHITE);
 
         layout_stack_pop(&ls);
-        widget(layout_stack_slot_rect(&ls), YELLOW);
+        widget(gym_layout_stack_slot(&ls), YELLOW);
 
         layout_stack_pop(&ls);
 

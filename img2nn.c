@@ -14,6 +14,14 @@
 #define SYNAPSE_IMPLEMENTATION
 #include "synapse.h"
 
+size_t arch[] = {3, 11, 11, 9, 1};
+float rate = 1.f;
+size_t batch_size = 20;
+size_t epoch_per_frame = 2;
+size_t max_epoch = 100000;
+bool paused = false;
+float scroll = 0;
+
 typedef struct
 {
     size_t count;
@@ -300,7 +308,6 @@ int render_upscale_screenshot(NN nn, char *out_file_path, float scroll)
     return 0;
 }
 
-
 int main(int argc, char **argv)
 {
     srand(time(0));
@@ -351,8 +358,6 @@ int main(int argc, char **argv)
         return 1;
     }
     fprintf(stdout, "%s is %dx%d %d bits\n", img2_file_path, img2_width, img2_height, n2 * 8);
-
-    size_t arch[] = {3, 11, 11, 9, 1};
 
     NN nn = nn_alloc(arch, ARRAY_LEN(arch));
     NN g = nn_alloc(arch, ARRAY_LEN(arch));
@@ -407,16 +412,9 @@ int main(int argc, char **argv)
     Image preview_image = GenImageColor(preview_image_width, preview_image_height, BLACK);
     Texture2D preview_texture = LoadTextureFromImage(preview_image);
 
-    float rate = 1.f;
-    size_t batch_size = 20;
-    size_t batch_count = (td.rows + batch_size - 1) / batch_size;
-    size_t epoch_per_frame = 2;
     size_t epochs = 0;
     Cost_Plot cost_da = {0};
-    size_t max_epoch = 100000;
-    bool paused = false;
-
-    float scroll = 0;
+    size_t batch_count = (td.rows + batch_size - 1) / batch_size;
     bool scroll_dragging = false;
 
     while (!WindowShouldClose())
