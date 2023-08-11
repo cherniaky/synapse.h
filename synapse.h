@@ -8,8 +8,13 @@
 #include <math.h>
 #include <stdint.h>
 
+#ifndef NN_ACT
 #define NN_ACT ACT_SIG
+#endif // NN_ACT
+
+#ifndef NN_RELU_PARAM
 #define NN_RELU_PARAM 0.01f
+#endif // NN_RELU_PARAM
 
 #ifndef S_CALLOC
 #define S_CALLOC calloc
@@ -80,12 +85,22 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to);
 void nn_learn(NN nn, NN g, float rate);
 void nn_zero(NN nn);
 
+typedef struct
+{
+    size_t begin;
+    float cost;
+    bool finished;
+} Batch;
+
+void batch_process(Batch *b, size_t batch_size, NN nn, NN g, Mat t, float rate);
+
 #ifdef SYNAPSE_ENABLE_GYM
 #include <float.h>
 #include <raylib.h>
 #include <raymath.h>
 
-typedef struct {
+typedef struct
+{
     float *items;
     size_t count;
     size_t capacity;
@@ -129,7 +144,12 @@ void gym_layout_stack_push(Gym_Layout_Stack *ls, Gym_Layout_Orient orient, Gym_R
 #define gls_push gym_layout_stack_push
 #define gym_layout_stack_slot(ls) (assert((ls)->count > 0), gym_layout_slot_loc(&(ls)->items[(ls)->count - 1], __FILE__, __LINE__))
 #define gls_slot gym_layout_stack_slot
-#define gym_layout_stack_pop(ls) do { assert((ls)->count > 0); (ls)->count -= 1; } while (0)
+#define gym_layout_stack_pop(ls) \
+    do                           \
+    {                            \
+        assert((ls)->count > 0); \
+        (ls)->count -= 1;        \
+    } while (0)
 #define gls_pop gym_layout_stack_pop
 
 #define DA_INIT_CAP 256
@@ -603,6 +623,45 @@ void nn_zero(NN nn)
     mat_fill(nn.as[nn.count], 0);
 }
 
+void batch_process(Batch *b, size_t batch_size, NN nn, NN g, Mat t, float rate)
+{
+    if (b->finished) {
+        b->finished = false;
+        b->begin = 0;
+        b->cost = 0;
+    }
+
+    size_t size = batch_size;
+    if (b->begin + batch_size >= t.rows)  {
+        size = t.rows - b->begin;
+    }
+
+    Mat batch_ti = {
+        .rows = size,
+        .cols = NN_INPUT(nn).cols,
+        .stride = t.stride,
+        .es = &MAT_AT(t, b->begin, 0),
+    };
+
+    Mat batch_to = {
+        .rows = size,
+        .cols = NN_OUTPUT(nn).cols,
+        .stride = t.stride,
+        .es = &MAT_AT(t, b->begin, batch_ti.cols),
+    };
+
+    nn_backprop(nn, g, batch_ti, batch_to);
+    nn_learn(nn, g, rate);
+    b->cost += nn_cost(nn, batch_ti, batch_to);
+    b->begin += batch_size;
+
+    if (b->begin >= t.rows) {
+        size_t batch_count = (t.rows + batch_size - 1)/batch_size;
+        b->cost /= batch_count;
+        b->finished = true;
+    }
+}
+
 #ifdef SYNAPSE_ENABLE_GYM
 void gym_render_nn(NN nn, float rx, float ry, float rw, float rh)
 {
@@ -734,7 +793,7 @@ void gym_nn_image_grayscale(NN nn, void *pixels, size_t width, size_t height, si
                 a = low;
             if (a > high)
                 a = high;
-            uint32_t pixel = (a + low) / (high - low) * 255.f;
+            uint32_t pixel = (a - low) / (high - low) * 255.f;
             pixels_u32[y * stride + x] = (0xFF << (8 * 3)) | (pixel << (8 * 2)) | (pixel << (8 * 1)) | (pixel << (8 * 0));
         }
     }
@@ -752,27 +811,34 @@ Gym_Rect gym_rect(float x, float y, float w, float h)
 
 Gym_Rect gym_layout_slot_loc(Gym_Layout *l, const char *file_path, int line)
 {
-    if (l->i >= l->count) {
+    if (l->i >= l->count)
+    {
         fprintf(stderr, "%s:%d: ERROR: Layout overflow\n", file_path, line);
         exit(1);
     }
 
     Gym_Rect r = {0};
 
-    switch (l->orient) {
+    switch (l->orient)
+    {
     case GLO_HORZ:
-        r.w = l->rect.w/l->count;
+        r.w = l->rect.w / l->count;
         r.h = l->rect.h;
-        r.x = l->rect.x + l->i*r.w;
+        r.x = l->rect.x + l->i * r.w;
         r.y = l->rect.y;
 
-        if (l->i == 0) { // First
-            r.w -= l->gap/2;
-        } else if (l->i >= l->count - 1) { // Last
-            r.x += l->gap/2;
-            r.w -= l->gap/2;
-        } else { // Middle
-            r.x += l->gap/2;
+        if (l->i == 0)
+        { // First
+            r.w -= l->gap / 2;
+        }
+        else if (l->i >= l->count - 1)
+        { // Last
+            r.x += l->gap / 2;
+            r.w -= l->gap / 2;
+        }
+        else
+        { // Middle
+            r.x += l->gap / 2;
             r.w -= l->gap;
         }
 
@@ -780,17 +846,22 @@ Gym_Rect gym_layout_slot_loc(Gym_Layout *l, const char *file_path, int line)
 
     case GLO_VERT:
         r.w = l->rect.w;
-        r.h = l->rect.h/l->count;
+        r.h = l->rect.h / l->count;
         r.x = l->rect.x;
-        r.y = l->rect.y + l->i*r.h;
+        r.y = l->rect.y + l->i * r.h;
 
-        if (l->i == 0) { // First
-            r.h -= l->gap/2;
-        } else if (l->i >= l->count - 1) { // Last
-            r.y += l->gap/2;
-            r.h -= l->gap/2;
-        } else { // Middle
-            r.y += l->gap/2;
+        if (l->i == 0)
+        { // First
+            r.h -= l->gap / 2;
+        }
+        else if (l->i >= l->count - 1)
+        { // Last
+            r.y += l->gap / 2;
+            r.h -= l->gap / 2;
+        }
+        else
+        { // Middle
+            r.y += l->gap / 2;
             r.h -= l->gap;
         }
 
