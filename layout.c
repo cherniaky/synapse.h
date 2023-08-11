@@ -155,11 +155,14 @@ void gym_layout_stack_push(Layout_Stack *ls, Gym_Layout_Orient orient, Gym_Rect 
     Gym_Layout l = make_layout(orient, rect, count, padding);
     da_append(ls, l);
 }
-void layout_stack_pop(Layout_Stack *ls)
+#define gls_push gym_layout_stack_push
+
+void gym_layout_stack_pop(Layout_Stack *ls)
 {
     assert(ls->count > 0);
     ls->count--;
 }
+#define gls_pop gym_layout_stack_pop
 
 Gym_Rect gym_layout_stack_slot_loc(Layout_Stack *ls, const char *filename, int line)
 {
@@ -168,6 +171,7 @@ Gym_Rect gym_layout_stack_slot_loc(Layout_Stack *ls, const char *filename, int l
 }
 
 #define gym_layout_stack_slot(ls) gym_layout_stack_slot_loc(ls, __FILE__, __LINE__)
+#define gls_slot gym_layout_stack_slot
 
 int main(void)
 {
@@ -191,26 +195,26 @@ int main(void)
         BeginDrawing();
         ClearBackground(BLACK);
 
-        gym_layout_stack_push(&ls, GLO_HORZ, make_layout_rect(0, padding, window_width, window_height - padding * 2), 3, gap);
+        gls_push(&ls, GLO_HORZ, make_layout_rect(0, padding, window_width, window_height - padding * 2), 3, gap);
 
-        widget(gym_layout_stack_slot(&ls), RED);
-        widget(gym_layout_stack_slot(&ls), GREEN);
+        widget(gls_slot(&ls), RED);
+        widget(gls_slot(&ls), GREEN);
 
-        gym_layout_stack_push(&ls, GLO_VERT, gym_layout_stack_slot(&ls), 3, gap);
+        gls_push(&ls, GLO_VERT, gls_slot(&ls), 3, gap);
 
-        widget(gym_layout_stack_slot(&ls), BLUE);
-        gym_layout_stack_push(&ls, GLO_VERT, gym_layout_stack_slot(&ls), 3, gap);
+        widget(gls_slot(&ls), BLUE);
+        gls_push(&ls, GLO_VERT, gls_slot(&ls), 3, gap);
 
-        widget(gym_layout_stack_slot(&ls), BLUE);
-        widget(gym_layout_stack_slot(&ls), YELLOW);
-        widget(gym_layout_stack_slot(&ls), WHITE);
+        widget(gls_slot(&ls), BLUE);
+        widget(gls_slot(&ls), YELLOW);
+        widget(gls_slot(&ls), WHITE);
 
-        layout_stack_pop(&ls);
-        widget(gym_layout_stack_slot(&ls), YELLOW);
+        gls_pop(&ls);
+        widget(gls_slot(&ls), YELLOW);
 
-        layout_stack_pop(&ls);
+        gls_pop(&ls);
 
-        layout_stack_pop(&ls);
+        gls_pop(&ls);
 
         EndDrawing();
         assert(ls.count == 0);
