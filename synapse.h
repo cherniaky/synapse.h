@@ -80,6 +80,78 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to);
 void nn_learn(NN nn, NN g, float rate);
 void nn_zero(NN nn);
 
+#ifdef SYNAPSE_ENABLE_GYM
+#include <float.h>
+#include <raylib.h>
+#include <raymath.h>
+
+typedef struct {
+    float *items;
+    size_t count;
+    size_t capacity;
+} Gym_Plot;
+
+typedef struct
+{
+    float x;
+    float y;
+    float w;
+    float h;
+} Gym_Rect;
+
+typedef enum
+{
+    GLO_HORZ,
+    GLO_VERT,
+} Gym_Layout_Orient;
+
+typedef struct
+{
+    Gym_Layout_Orient orient;
+    Gym_Rect rect;
+    size_t count;
+    size_t i;
+    float gap;
+} Gym_Layout;
+
+typedef struct
+{
+    Gym_Layout *items;
+    size_t count;
+    size_t capacity;
+} Gym_Layout_Stack;
+
+Gym_Rect gym_rect(float x, float y, float w, float h);
+
+Gym_Rect gym_layout_slot_loc(Gym_Layout *l, const char *filename, int line);
+
+void gym_layout_stack_push(Gym_Layout_Stack *ls, Gym_Layout_Orient orient, Gym_Rect rect, size_t count, float gap);
+#define gls_push gym_layout_stack_push
+#define gym_layout_stack_slot(ls) (assert((ls)->count > 0), gym_layout_slot_loc(&(ls)->items[(ls)->count - 1], __FILE__, __LINE__))
+#define gls_slot gym_layout_stack_slot
+#define gym_layout_stack_pop(ls) do { assert((ls)->count > 0); (ls)->count -= 1; } while (0)
+#define gls_pop gym_layout_stack_pop
+
+#define DA_INIT_CAP 256
+#define da_append(da, item)                                                            \
+    do                                                                                 \
+    {                                                                                  \
+        if ((da)->count >= (da)->capacity)                                             \
+        {                                                                              \
+            (da)->capacity = (da)->capacity == 0 ? DA_INIT_CAP : (da)->capacity * 2;   \
+            (da)->items = realloc((da)->items, (da)->capacity * sizeof(*(da)->items)); \
+            assert((da)->items != NULL && "Buy more RAM lol");                         \
+        }                                                                              \
+                                                                                       \
+        (da)->items[(da)->count++] = (item);                                           \
+    } while (0)
+
+void gym_render_nn(NN nn, float rx, float ry, float rw, float rh);
+void gym_plot(Gym_Plot plot, int rx, int ry, int rw, int rh);
+void gym_slider(float *value, bool *dragging, float rx, float ry, float rw, float rh);
+void gym_nn_image_grayscale(NN nn, void *pixels, size_t width, size_t height, size_t stride, float low, float high);
+
+#endif // SYNAPSE_ENABLE_GYM
 #endif // SYNAPSE_H_
 
 #ifdef SYNAPSE_IMPLEMENTATION
@@ -530,4 +602,219 @@ void nn_zero(NN nn)
     }
     mat_fill(nn.as[nn.count], 0);
 }
+
+#ifdef SYNAPSE_ENABLE_GYM
+void gym_render_nn(NN nn, float rx, float ry, float rw, float rh)
+{
+    Color low_color = {0xFF, 0x00, 0xFF, 0xFF};
+    Color high_color = {0x00, 0xFF, 0x00, 0xFF};
+    float neuron_radius = rh * 0.03;
+    float layer_border_vpad = rh * 0.08;
+    float layer_border_hpad = rw * 0.06;
+    float nn_width = rw - 2 * layer_border_hpad;
+    float nn_height = rh - 2 * layer_border_vpad;
+    float nn_x = rx + rw / 2 - nn_width / 2;
+    float nn_y = ry + rh / 2 - nn_height / 2;
+    size_t arch_count = nn.count + 1;
+    float layer_hpad = nn_width / arch_count;
+    for (size_t l = 0; l < arch_count; ++l)
+    {
+        float layer_vpad1 = nn_height / nn.as[l].cols;
+        for (size_t i = 0; i < nn.as[l].cols; ++i)
+        {
+            float cx1 = nn_x + l * layer_hpad + layer_hpad / 2;
+            float cy1 = nn_y + i * layer_vpad1 + layer_vpad1 / 2;
+            if (l + 1 < arch_count)
+            {
+                float layer_vpad2 = nn_height / nn.as[l + 1].cols;
+                for (size_t j = 0; j < nn.as[l + 1].cols; ++j)
+                {
+                    // i - rows of ws
+                    // j - cols of ws
+                    float cx2 = nn_x + (l + 1) * layer_hpad + layer_hpad / 2;
+                    float cy2 = nn_y + j * layer_vpad2 + layer_vpad2 / 2;
+                    float value = sigmoidf(MAT_AT(nn.ws[l], i, j));
+                    high_color.a = floorf(255.f * value);
+                    float thick = rh * 0.004f;
+                    Vector2 start = {cx1, cy1};
+                    Vector2 end = {cx2, cy2};
+                    DrawLineEx(start, end, thick, ColorAlphaBlend(low_color, high_color, WHITE));
+                }
+            }
+            if (l > 0)
+            {
+                high_color.a = floorf(255.f * sigmoidf(MAT_AT(nn.bs[l - 1], 0, i)));
+                DrawCircle(cx1, cy1, neuron_radius, ColorAlphaBlend(low_color, high_color, WHITE));
+            }
+            else
+            {
+                DrawCircle(cx1, cy1, neuron_radius, GRAY);
+            }
+        }
+    }
+}
+void gym_plot(Gym_Plot plot, int rx, int ry, int rw, int rh)
+{
+    float min = FLT_MAX, max = FLT_MIN;
+    for (size_t i = 0; i < plot.count; ++i)
+    {
+        if (max < plot.items[i])
+            max = plot.items[i];
+        if (min > plot.items[i])
+            min = plot.items[i];
+    }
+    if (min > 0)
+        min = 0;
+    size_t n = plot.count;
+    if (n < 1000)
+        n = 1000;
+    for (size_t i = 0; i + 1 < plot.count; ++i)
+    {
+        float x1 = rx + (float)rw / n * i;
+        float y1 = ry + (1 - (plot.items[i] - min) / (max - min)) * rh;
+        float x2 = rx + (float)rw / n * (i + 1);
+        float y2 = ry + (1 - (plot.items[i + 1] - min) / (max - min)) * rh;
+        DrawLineEx((Vector2){x1, y1}, (Vector2){x2, y2}, rh * 0.005, RED);
+    }
+    float y0 = ry + (1 - (0 - min) / (max - min)) * rh;
+    DrawLineEx((Vector2){rx + 0, y0}, (Vector2){rx + rw - 1, y0}, rh * 0.005, WHITE);
+    DrawText("0", rx + 0, y0 - rh * 0.04, rh * 0.04, WHITE);
+}
+void gym_slider(float *value, bool *dragging, float rx, float ry, float rw, float rh)
+{
+    float knob_radius = rh;
+    Vector2 bar_size = {
+        .x = rw - 2 * knob_radius,
+        .y = rh * 0.25,
+    };
+    Vector2 bar_position = {
+        .x = rx + knob_radius,
+        .y = ry + rh / 2 - bar_size.y / 2};
+    DrawRectangleV(bar_position, bar_size, WHITE);
+    Vector2 knob_position = {
+        .x = bar_position.x + bar_size.x * (*value),
+        .y = ry + rh / 2};
+    DrawCircleV(knob_position, knob_radius, RED);
+    if (*dragging)
+    {
+        float x = GetMousePosition().x;
+        if (x < bar_position.x)
+            x = bar_position.x;
+        if (x > bar_position.x + bar_size.x)
+            x = bar_position.x + bar_size.x;
+        *value = (x - bar_position.x) / bar_size.x;
+    }
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        Vector2 mouse_position = GetMousePosition();
+        if (Vector2Distance(mouse_position, knob_position) <= knob_radius)
+        {
+            *dragging = true;
+        }
+    }
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    {
+        *dragging = false;
+    }
+}
+void gym_nn_image_grayscale(NN nn, void *pixels, size_t width, size_t height, size_t stride, float low, float high)
+{
+    S_ASSERT(NN_INPUT(nn).cols >= 2);
+    S_ASSERT(NN_OUTPUT(nn).cols >= 1);
+    uint32_t *pixels_u32 = pixels;
+    for (size_t y = 0; y < height; ++y)
+    {
+        for (size_t x = 0; x < width; ++x)
+        {
+            MAT_AT(NN_INPUT(nn), 0, 0) = (float)x / (float)(width - 1);
+            MAT_AT(NN_INPUT(nn), 0, 1) = (float)y / (float)(height - 1);
+            nn_forward(nn);
+            float a = MAT_AT(NN_OUTPUT(nn), 0, 0);
+            if (a < low)
+                a = low;
+            if (a > high)
+                a = high;
+            uint32_t pixel = (a + low) / (high - low) * 255.f;
+            pixels_u32[y * stride + x] = (0xFF << (8 * 3)) | (pixel << (8 * 2)) | (pixel << (8 * 1)) | (pixel << (8 * 0));
+        }
+    }
+}
+
+Gym_Rect gym_rect(float x, float y, float w, float h)
+{
+    Gym_Rect r = {0};
+    r.x = x;
+    r.y = y;
+    r.w = w;
+    r.h = h;
+    return r;
+}
+
+Gym_Rect gym_layout_slot_loc(Gym_Layout *l, const char *file_path, int line)
+{
+    if (l->i >= l->count) {
+        fprintf(stderr, "%s:%d: ERROR: Layout overflow\n", file_path, line);
+        exit(1);
+    }
+
+    Gym_Rect r = {0};
+
+    switch (l->orient) {
+    case GLO_HORZ:
+        r.w = l->rect.w/l->count;
+        r.h = l->rect.h;
+        r.x = l->rect.x + l->i*r.w;
+        r.y = l->rect.y;
+
+        if (l->i == 0) { // First
+            r.w -= l->gap/2;
+        } else if (l->i >= l->count - 1) { // Last
+            r.x += l->gap/2;
+            r.w -= l->gap/2;
+        } else { // Middle
+            r.x += l->gap/2;
+            r.w -= l->gap;
+        }
+
+        break;
+
+    case GLO_VERT:
+        r.w = l->rect.w;
+        r.h = l->rect.h/l->count;
+        r.x = l->rect.x;
+        r.y = l->rect.y + l->i*r.h;
+
+        if (l->i == 0) { // First
+            r.h -= l->gap/2;
+        } else if (l->i >= l->count - 1) { // Last
+            r.y += l->gap/2;
+            r.h -= l->gap/2;
+        } else { // Middle
+            r.y += l->gap/2;
+            r.h -= l->gap;
+        }
+
+        break;
+
+    default:
+        assert(0 && "Unreachable");
+    }
+
+    l->i += 1;
+
+    return r;
+}
+
+void gym_layout_stack_push(Gym_Layout_Stack *ls, Gym_Layout_Orient orient, Gym_Rect rect, size_t count, float gap)
+{
+    Gym_Layout l = {0};
+    l.orient = orient;
+    l.rect = rect;
+    l.count = count;
+    l.gap = gap;
+    da_append(ls, l);
+}
+
+#endif // NN_ENABLE_GYM
+
 #endif // SYNAPSE_IMPLEMENTATION
