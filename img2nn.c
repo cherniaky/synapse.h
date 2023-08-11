@@ -14,6 +14,8 @@
 #include "dev_deps/stb_image.h"
 #include "dev_deps/stb_image_write.h"
 
+#define NN_ACT ACT_RELU
+
 #define SYNAPSE_IMPLEMENTATION
 #define SYNAPSE_ENABLE_GYM
 #include "synapse.h"
@@ -22,7 +24,7 @@ size_t arch[] = {3, 11, 11, 9, 1};
 size_t max_epoch = 100 * 1000;
 size_t batches_per_frame = 200;
 size_t batch_size = 28;
-float rate = 1.0f;
+float rate = 0.00001f;
 float scroll = 0.f;
 bool paused = true;
 
