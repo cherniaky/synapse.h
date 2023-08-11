@@ -60,9 +60,13 @@ Rectangle make_layout_rect(size_t x, size_t y, size_t width, size_t height)
     return rect;
 }
 
-Rectangle layout_slot(Layout *l)
+Rectangle layout_slot(Layout *l, const char *filename, int line)
 {
-    assert(l->i < l->elements_count);
+    if (l->i >= l->elements_count)
+    {
+        fprintf(stderr, "%s:%d: ERROR: Layout overflow\n", filename, line);
+        exit(1);
+    }
 
     Rectangle r = {0};
     switch (l->orient)
@@ -156,11 +160,13 @@ void layout_stack_pop(Layout_Stack *ls)
     ls->count--;
 }
 
-Rectangle layout_stack_slot_rect(Layout_Stack *ls)
+Rectangle layout_stack_slot_rect_loc(Layout_Stack *ls, const char *filename, int line)
 {
     assert(ls->count > 0);
-    return layout_slot(&ls->items[ls->count - 1]);
+    return layout_slot(&ls->items[ls->count - 1], filename, line);
 }
+
+#define layout_stack_slot_rect(ls) layout_stack_slot_rect_loc(ls, __FILE__, __LINE__)
 
 int main(void)
 {
