@@ -35,14 +35,16 @@ typedef struct
     Rectangle rect;
     size_t elements_count;
     size_t i;
+    float gap;
 } Layout;
 
-Layout make_layout(Layout_Orient orient, Rectangle rect, size_t count)
+Layout make_layout(Layout_Orient orient, Rectangle rect, size_t count, float gap)
 {
     Layout l = {
         .orient = orient,
         .rect = rect,
         .elements_count = count,
+        .gap = gap,
     };
     return l;
 }
@@ -72,6 +74,21 @@ Rectangle layout_slot(Layout *l)
         r.width = width;
         r.height = l->rect.height;
 
+        if (l->i == 0)
+        {
+            r.width -= l->gap / 2;
+        }
+        else if (l->i == l->elements_count - 1)
+        {
+            r.x += l->gap / 2;
+            r.width -= l->gap / 2;
+        }
+        else
+        {
+            r.x += l->gap / 2;
+            r.width -= l->gap;
+        }
+
         break;
 
     case LO_VERT:
@@ -80,6 +97,21 @@ Rectangle layout_slot(Layout *l)
         r.y = l->rect.y + l->i * height;
         r.width = l->rect.width;
         r.height = height;
+
+        if (l->i == 0)
+        {
+            r.height -= l->gap / 2;
+        }
+        else if (l->i == l->elements_count - 1)
+        {
+            r.y += l->gap / 2;
+            r.height -= l->gap / 2;
+        }
+        else
+        {
+            r.y += l->gap / 2;
+            r.height -= l->gap;
+        }
 
         break;
     default:
@@ -113,9 +145,9 @@ typedef struct
         (da)->items[(da)->count++] = (item);                                           \
     } while (0)
 
-void layout_stack_push(Layout_Stack *ls, Layout_Orient orient, Rectangle rect, size_t count)
+void layout_stack_push(Layout_Stack *ls, Layout_Orient orient, Rectangle rect, size_t count, float padding)
 {
-    Layout l = make_layout(orient, rect, count);
+    Layout l = make_layout(orient, rect, count, padding);
     da_append(ls, l);
 }
 void layout_stack_pop(Layout_Stack *ls)
@@ -147,19 +179,20 @@ int main(void)
         int window_height = GetRenderHeight();
         int window_width = GetRenderWidth();
         size_t padding = window_height * 0.1;
+        float gap = 10.f;
 
         BeginDrawing();
         ClearBackground(BLACK);
 
-        layout_stack_push(&ls, LO_HORZ, make_layout_rect(0, padding, window_width, window_height - padding * 2), 3);
+        layout_stack_push(&ls, LO_HORZ, make_layout_rect(0, padding, window_width, window_height - padding * 2), 3, gap);
 
         widget(layout_stack_slot_rect(&ls), RED);
         widget(layout_stack_slot_rect(&ls), GREEN);
 
-        layout_stack_push(&ls, LO_VERT, layout_stack_slot_rect(&ls), 3);
+        layout_stack_push(&ls, LO_VERT, layout_stack_slot_rect(&ls), 3, gap);
 
         widget(layout_stack_slot_rect(&ls), BLUE);
-        layout_stack_push(&ls, LO_VERT, layout_stack_slot_rect(&ls), 3);
+        layout_stack_push(&ls, LO_VERT, layout_stack_slot_rect(&ls), 3, gap);
 
         widget(layout_stack_slot_rect(&ls), BLUE);
         widget(layout_stack_slot_rect(&ls), YELLOW);
