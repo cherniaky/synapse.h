@@ -5,17 +5,22 @@
 
 #include <raylib.h>
 
-typedef struct
-{
-    float x;
-    float y;
-    float w;
-    float h;
-} Layout_Rect;
+// typedef struct
+// {
+//     float x;
+//     float y;
+//     float width;
+//     float height;
+// } Rectangle;
 
-void widget(Layout_Rect r, Color color)
+void widget(Rectangle r, Color color)
 {
-    DrawRectangle(ceilf(r.x), ceilf(r.y), ceilf(r.w), ceilf(r.h), color);
+    if (CheckCollisionPointRec(GetMousePosition(), r))
+    {
+        color = ColorBrightness(color, 0.4f);
+    }
+
+    DrawRectangleRec(r, color);
 }
 
 typedef enum
@@ -27,12 +32,12 @@ typedef enum
 typedef struct
 {
     Layout_Orient orient;
-    Layout_Rect rect;
+    Rectangle rect;
     size_t elements_count;
     size_t i;
 } Layout;
 
-Layout make_layout(Layout_Orient orient, Layout_Rect rect, size_t count)
+Layout make_layout(Layout_Orient orient, Rectangle rect, size_t count)
 {
     Layout l = {
         .orient = orient,
@@ -42,39 +47,39 @@ Layout make_layout(Layout_Orient orient, Layout_Rect rect, size_t count)
     return l;
 }
 
-Layout_Rect make_layout_rect(size_t x, size_t y, size_t w, size_t h)
+Rectangle make_layout_rect(size_t x, size_t y, size_t width, size_t height)
 {
-    Layout_Rect rect = {
+    Rectangle rect = {
         .x = x,
         .y = y,
-        .h = h,
-        .w = w,
+        .height = height,
+        .width = width,
     };
     return rect;
 }
 
-Layout_Rect layout_slot(Layout *l)
+Rectangle layout_slot(Layout *l)
 {
     assert(l->i < l->elements_count);
 
-    Layout_Rect r = {0};
+    Rectangle r = {0};
     switch (l->orient)
     {
     case LO_HORZ:
-        float w = l->rect.w / l->elements_count;
-        r.x = l->rect.x + l->i * w;
+        float width = l->rect.width / l->elements_count;
+        r.x = l->rect.x + l->i * width;
         r.y = l->rect.y;
-        r.w = w;
-        r.h = l->rect.h;
+        r.width = width;
+        r.height = l->rect.height;
 
         break;
 
     case LO_VERT:
-        float h = l->rect.h / l->elements_count;
+        float height = l->rect.height / l->elements_count;
         r.x = l->rect.x;
-        r.y = l->rect.y + l->i * h;
-        r.w = l->rect.w;
-        r.h = h;
+        r.y = l->rect.y + l->i * height;
+        r.width = l->rect.width;
+        r.height = height;
 
         break;
     default:
@@ -108,7 +113,7 @@ typedef struct
         (da)->items[(da)->count++] = (item);                                           \
     } while (0)
 
-void layout_stack_push(Layout_Stack *ls, Layout_Orient orient, Layout_Rect rect, size_t count)
+void layout_stack_push(Layout_Stack *ls, Layout_Orient orient, Rectangle rect, size_t count)
 {
     Layout l = make_layout(orient, rect, count);
     da_append(ls, l);
@@ -119,7 +124,7 @@ void layout_stack_pop(Layout_Stack *ls)
     ls->count--;
 }
 
-Layout_Rect layout_stack_slot_rect(Layout_Stack *ls)
+Rectangle layout_stack_slot_rect(Layout_Stack *ls)
 {
     assert(ls->count > 0);
     return layout_slot(&ls->items[ls->count - 1]);
@@ -154,8 +159,14 @@ int main(void)
         layout_stack_push(&ls, LO_VERT, layout_stack_slot_rect(&ls), 3);
 
         widget(layout_stack_slot_rect(&ls), BLUE);
+        layout_stack_push(&ls, LO_VERT, layout_stack_slot_rect(&ls), 3);
+
+        widget(layout_stack_slot_rect(&ls), BLUE);
         widget(layout_stack_slot_rect(&ls), YELLOW);
-        widget(layout_stack_slot_rect(&ls), MAGENTA);
+        widget(layout_stack_slot_rect(&ls), WHITE);
+
+        layout_stack_pop(&ls);
+        widget(layout_stack_slot_rect(&ls), YELLOW);
 
         layout_stack_pop(&ls);
 
