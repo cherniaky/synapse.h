@@ -44,12 +44,13 @@ typedef struct
 {
     size_t capacity;
     size_t size;
-    char *data;
+    uintptr_t *words;
 } Region;
 
-Region region_alloc_alloc(size_t capacity);
-void *region_alloc(Region *r, size_t size);
+Region region_alloc_alloc(size_t capacity_bytes);
+void *region_alloc(Region *r, size_t size_bytes);
 #define region_reset(r) (r)->size = 0
+#define region_occupied_mbytes(r) (S_ASSERT((r) != NULL), ((r)->size * sizeof(*(r)->words)) / (1024 * 1024))
 
 typedef struct
 {
@@ -520,7 +521,6 @@ NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
             Mat dCda = mat_alloc(r, g.as[l + 1].rows, w_t.cols);
             mat_dot(dCda, g.as[l + 1], w_t);
             mat_sum(g.as[l], dCda);
-
         }
     }
 
@@ -602,29 +602,35 @@ void batch_process(Region *r, Batch *b, size_t batch_size, NN nn, Mat t, float r
     }
 }
 
-Region region_alloc_alloc(size_t capacity)
+Region region_alloc_alloc(size_t capacity_bytes)
 {
-    void *data = S_CALLOC(capacity, 1);
-    S_ASSERT(data != NULL);
-    Region r = {
-        .capacity = capacity,
-        .data = data,
-        .size = 0,
-    };
+    Region r = {0};
+
+    size_t word_size = sizeof(*r.words);
+    size_t capacity_words = (capacity_bytes + word_size - 1) / word_size;
+
+    void *words = S_CALLOC(capacity_words, word_size);
+    S_ASSERT(words != NULL);
+    r.capacity = capacity_words;
+    r.words = words;
+
     return r;
 }
 
-void *region_alloc(Region *r, size_t size)
+void *region_alloc(Region *r, size_t size_bytes)
 {
     if (r == NULL)
-        return S_CALLOC(size, 1);
+        return S_CALLOC(size_bytes, 1);
 
-    S_ASSERT(r->size + size <= r->capacity);
-    if (r->size + size > r->capacity) return NULL;
+    size_t word_size = sizeof(*r->words);
+    size_t size_words = (size_bytes + word_size - 1) / word_size;
 
-    void *result = &r->data[r->size];
+    S_ASSERT(r->size + size_words <= r->capacity);
+    if (r->size + size_words > r->capacity)
+        return NULL;
+    void *result = &r->words[r->size];
 
-    r->size += size;
+    r->size += size_words;
 
     return result;
 }
