@@ -6,9 +6,9 @@
 exec=img2nn
 # exec=layout
 
-rm $exec 
+rm build/$exec 
 
-gcc -o build/$exec demos/$exec.c -Wall -lraylib -lGL -lm -I. -lpthread -ldl -lrt -lX11
+gcc -o build/$exec demos/$exec.c -Wall -Wextra -lraylib -lGL -lm -I. -lpthread -ldl -lrt -lX11
 
 # ./$exec
 # ./$exec xor.arch xor.mat
