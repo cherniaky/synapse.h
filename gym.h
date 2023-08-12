@@ -11,6 +11,8 @@
 #define GYM_ASSERT S_ASSERT
 #endif // GYM_ASSERT
 
+#define GYM_BACKGROUND CLITERAL(Color) { 0x18, 0x18, 0x18, 0xFF }
+
 typedef struct
 {
     float x;
