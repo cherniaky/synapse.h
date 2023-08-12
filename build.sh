@@ -8,7 +8,7 @@ exec=img2nn
 
 rm $exec 
 
-gcc -o build/$exec demos/$exec.c -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+gcc -o build/$exec demos/$exec.c -Wall -lraylib -lGL -lm -I. -lpthread -ldl -lrt -lX11
 
 # ./$exec
 # ./$exec xor.arch xor.mat

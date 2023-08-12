@@ -11,16 +11,16 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "dev_deps/stb_image.h"
-#include "dev_deps/stb_image_write.h"
+#include "../dev_deps/stb_image.h"
+#include "../dev_deps/stb_image_write.h"
 
 #define NN_ACT ACT_RELU
 
 #define GYM_IMPLEMENTATION
-#include "gym.h"
+#include "../gym.h"
 
 #define SYNAPSE_IMPLEMENTATION
-#include "synapse.h"
+#include "../synapse.h"
 
 size_t arch[] = {3, 11, 11, 11, 11, 1};
 size_t max_epoch = 100 * 1000;
