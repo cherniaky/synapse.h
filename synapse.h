@@ -92,7 +92,7 @@ void nn_print(NN nn, char *name);
 void nn_rand(NN nn, float low, float high);
 void nn_forward(NN nn);
 float nn_cost(NN nn, Mat ti, Mat to);
-void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to);
+NN nn_finite_diff(Region *r, NN nn, float eps, Mat ti, Mat to);
 NN nn_backprop(Region *r, NN nn, Mat ti, Mat to);
 void nn_learn(NN nn, NN g, float rate);
 void nn_zero(NN nn);
@@ -422,10 +422,11 @@ float nn_cost(NN nn, Mat ti, Mat to)
     return c / (float)n;
 }
 
-void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to)
+NN nn_finite_diff(Region *r, NN nn, float eps, Mat ti, Mat to)
 {
     float saved;
     float c = nn_cost(nn, ti, to);
+    NN g = nn_alloc(r, nn.arch, nn.arch_count);
 
     for (size_t i = 0; i < nn.arch_count - 1; i++)
     {
@@ -451,6 +452,8 @@ void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to)
             }
         }
     }
+
+    return g;
 }
 
 NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
