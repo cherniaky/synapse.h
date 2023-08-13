@@ -5,6 +5,7 @@
 # exec=xor.gen
 exec=img2nn
 # exec=layout
+# exec=shape
 
 rm build/$exec 
 

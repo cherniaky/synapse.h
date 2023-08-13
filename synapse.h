@@ -60,6 +60,22 @@ typedef struct
     float *es;
 } Mat;
 
+
+typedef struct {
+    size_t cols;
+    float *es;
+} Row;
+
+#define ROW_AT(row, col) (row).es[col]
+
+Mat row_as_mat(Row row);
+#define row_alloc(r, cols) mat_row(mat_alloc(r, 1, cols), 0)
+Row row_slice(Row row, size_t i, size_t cols);
+#define row_rand(row, low, high) mat_rand(row_as_mat(row), low, high)
+#define row_fill(row, x) mat_fill(row_as_mat(row), x);
+#define row_print(row, name, padding) mat_print(row_as_mat(row), name, padding)
+#define row_copy(dst, src) mat_copy(row_as_mat(dst), row_as_mat(src))
+
 #define MAT_AT(m, i, j) (m).es[(i) * (m).stride + (j)]
 
 Mat mat_alloc(Region *r, size_t rows, size_t cols);
@@ -70,7 +86,7 @@ void mat_sum(Mat dist, Mat a);
 void mat_act(Mat m);
 void mat_print(Mat m, const char *name, size_t padding);
 void mat_rand(Mat m, float low, float high);
-Mat mat_row(Mat m, size_t row);
+Row mat_row(Mat m, size_t row);
 void mat_copy(Mat dist, Mat src);
 void mat_fill(Mat m, float x);
 #define MAT_PRINT(m) mat_print(m, #m, 0)
@@ -279,13 +295,11 @@ void mat_rand(Mat m, float low, float high)
     }
 }
 
-Mat mat_row(Mat m, size_t row)
+Row mat_row(Mat m, size_t row)
 {
-    return (Mat){
+    return (Row){
         .es = &MAT_AT(m, row, 0),
-        .rows = 1,
         .cols = m.cols,
-        .stride = m.stride,
     };
 }
 
@@ -406,8 +420,8 @@ float nn_cost(NN nn, Mat ti, Mat to)
     float c = 0;
     for (size_t i = 0; i < n; i++)
     {
-        Mat x = mat_row(ti, i);
-        Mat y = mat_row(to, i);
+        Mat x = row_as_mat(mat_row(ti, i));
+        Mat y = row_as_mat(mat_row(to, i));
 
         mat_copy(NN_INPUT(nn), x);
         nn_forward(nn);
@@ -468,7 +482,7 @@ NN nn_backprop(Region *r, NN nn, Mat ti, Mat to)
     // i - current sample
     for (size_t i = 0; i < n; i++)
     {
-        mat_copy(NN_INPUT(nn), mat_row(ti, i));
+        mat_copy(NN_INPUT(nn), row_as_mat(mat_row(ti, i)));
         nn_forward(nn);
 
         for (size_t j = 0; j < nn.arch_count; j++)
@@ -633,6 +647,16 @@ void *region_alloc(Region *r, size_t size_bytes)
     r->size += size_words;
 
     return result;
+}
+
+Mat row_as_mat(Row r) {
+    return (Mat){.rows = 1, .cols = r.cols, .stride = r.cols, .es = r.es};
+}
+
+Row row_slice(Row row, size_t i, size_t cols){
+    S_ASSERT(i < row.cols);
+    S_ASSERT(i + cols <= row.cols);
+    return (Row) { .cols = cols, .es = &ROW_AT(row, i), };
 }
 
 #endif // SYNAPSE_IMPLEMENTATION
