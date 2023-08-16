@@ -3,7 +3,7 @@
 
 #define OLIVEC_AA_RES 1
 #define OLIVEC_IMPLEMENTATION
-#include "../dev_deps/olive.c"
+#include "../deps/olive.c"
 
 #define NN_BACKPROP_TRADITIONAL
 #define NN_ACT ACT_SIG
