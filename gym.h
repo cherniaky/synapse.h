@@ -91,6 +91,7 @@ void gym_plot(Gym_Plot plot, Gym_Rect r, Color color);
 void gym_slider(float *value, bool *dragging, float rx, float ry, float rw, float rh);
 void gym_nn_image_grayscale(NN nn, void *pixels, size_t width, size_t height, size_t stride, float low, float high);
 Gym_Rect gym_root(void);
+Gym_Rect gym_fit_square(Gym_Rect r);
 
 #endif // GYM_H_
 
@@ -374,5 +375,25 @@ Gym_Rect gym_root(void)
     root.h = GetRenderHeight();
     return root;
 }
+
+Gym_Rect gym_fit_square(Gym_Rect r)
+{
+    if (r.w < r.h) {
+        return (Gym_Rect) {
+            .x = r.x,
+            .y = r.y + r.h/2 - r.w/2,
+            .w = r.w,
+            .h = r.w,
+        };
+    } else {
+        return (Gym_Rect) {
+            .x = r.x + r.w/2 - r.h/2,
+            .y = r.y,
+            .w = r.h,
+            .h = r.h,
+        };
+    }
+}
+
 
 #endif // GYM_IMPLEMENTATION
