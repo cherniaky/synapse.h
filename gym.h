@@ -90,6 +90,7 @@ void gym_render_nn_activations_heatmap(NN nn, Gym_Rect r);
 void gym_plot(Gym_Plot plot, Gym_Rect r, Color color);
 void gym_slider(float *value, bool *dragging, float rx, float ry, float rw, float rh);
 void gym_nn_image_grayscale(NN nn, void *pixels, size_t width, size_t height, size_t stride, float low, float high);
+Gym_Rect gym_root(void);
 
 #endif // GYM_H_
 
@@ -364,6 +365,14 @@ void gym_layout_stack_push(Gym_Layout_Stack *ls, Gym_Layout_Orient orient, Gym_R
     l.count = count;
     l.gap = gap;
     da_append(ls, l);
+}
+
+Gym_Rect gym_root(void)
+{
+    Gym_Rect root = {0};
+    root.w = GetRenderWidth();
+    root.h = GetRenderHeight();
+    return root;
 }
 
 #endif // GYM_IMPLEMENTATION

@@ -3,9 +3,9 @@
 # exec=xor
 # exec=gym
 # exec=xor.gen
-exec=img2nn
+# exec=img2nn
 # exec=layout
-# exec=shape
+exec=shape
 
 rm build/$exec 
 
