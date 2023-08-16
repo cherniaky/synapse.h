@@ -11,10 +11,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "../dev_deps/stb_image.h"
-#include "../dev_deps/stb_image_write.h"
+#include "../deps/stb_image.h"
+#include "../deps/stb_image_write.h"
 
-#define NN_ACT ACT_RELU
+#define NN_ACT ACT_SIG
 
 #define GYM_IMPLEMENTATION
 #include "../gym.h"
@@ -413,7 +413,7 @@ int main(int argc, char **argv)
             r.y = h / 2.f - r.h / 2;
 
             gym_layout_begin(GLO_HORZ, r, 3, 10);
-            gym_plot(plot, gym_layout_slot());
+            gym_plot(plot, gym_layout_slot(), RED);
             gym_render_nn_weights_heatmap(nn, gym_layout_slot());
             Gym_Rect preview_slot = gym_layout_slot();
             gym_layout_begin(GLO_VERT, preview_slot, 3, 0);
