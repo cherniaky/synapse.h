@@ -40,5 +40,15 @@ After build you will see graphical window with:
 2. Representation of current state of neural network's weights as a heatmap
 3. Current ability of neural network to upscale given image and below it slider to change state parameter from 0 to 1.
 4. Slider at the top to change learning rate
+
+![img2nn example](img2nn.jpg)
 <br/>
-![img2mat example](img2mat.jpg)
+Example compile options:
+```
+#!/bin/sh
+exec=img2nn
+
+gcc -o build/$exec demos/$exec.c -O3 -Wall -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+
+./build/$exec mnist/8.png mnist/6.png
+```
