@@ -1,12 +1,24 @@
 # synapse.h
 Simple std-style library for training Neural Networks
-## Installation
-Start by:
-docker-compose up -d
-docer-compose exec synapse bash
 
-To exit bash shell type "exit"
-## gym.c
+# gym.h
+Addition to synapse.h, gives you ability to render display your training results in GUI using raylib
+
+## Prerequisites
+You will need to install locally this packages:
+1. raylib.h 
+2. build-essentials
+
+## Demos
+In the demos folder you can find a few demos that uses synapse.h and gym.h
+
+### shape.c
+Trains NN that classifies shapes. It trained to distinguish rectangles and circles<br/>
+In the right top corner there is drawable canvas, where you can make a shape and NN will try to figure out what shape it is<br/>
+Also you can press "Q" or "W" to generate cirle or rectangle on this canvas<br/>
+![shape](shape.jpg)
+
+### img2nn.c
 Example compile options:
 ```
 #!/bin/sh
