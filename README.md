@@ -1,6 +1,6 @@
 # synapse.h
 Simple std-style library for training Neural Networks
-
+ 
 # gym.h
 Addition to synapse.h, gives you ability to render display your training results in GUI using raylib 
 
